@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resonance_utils"
+version = "0.2.0"
+description = "Soundscape generator for an EEG-adaptive power-nap app: ElevenLabs beds, baked slow swells and a sedative ambient tone layer, behind one ss_gen command."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "George" }]
+keywords = ["audio", "eeg", "neurofeedback", "binaural-beats", "sleep", "nap", "soundscape", "dsp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Private :: Do Not Upload",
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.7"]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+ss_gen = "resonance_utils.ss_gen:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"

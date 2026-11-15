@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Generated audio and reports (large, reproducible from seed/params)
+*.wav
+*.flac
+*.mp3
+*.opus
+out/
+bed_out/
+*_envelope.csv
+
+# Secrets
+.env
+*.key
+
+# OS
+.DS_Store
