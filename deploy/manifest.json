@@ -1,0 +1,2011 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-16T03:54:58+00:00",
+  "generator": "resonance_utils 0.2.0",
+  "audio": {
+    "container": "wav",
+    "sample_rate_hz": 48000,
+    "bit_depth": 24,
+    "channels": 2,
+    "loudness_rms_dbfs": -26.0,
+    "peak_ceiling_dbfs": -3.0,
+    "seamless_loop": true
+  },
+  "carriers_hz": [
+    110.0,
+    220.0,
+    440.0
+  ],
+  "notes": [
+    "Every loop is seamless: play it with gapless looping, never re-encode to MP3.",
+    "All rates of one scenario share the same bed: crossfade between them at a trough (troughs_s) for an inaudible switch.",
+    "Every soundscape works with any carrier in carriers_hz: the bed is notched -6 dB in a 1/3 octave around each, takes with tonal hum near any of them were rejected, and the tone layer keeps every partial at least 20 Hz from all of them. Run the binaural carrier at one of these frequencies; any other may beat against the tone layer.",
+    "No beat or AM is baked in: the app's music driver adds it.",
+    "envelope_csv columns: time_s, wave_phase, envelope_0to1, gain_db, pan, at 20 Hz."
+  ],
+  "scenarios": [
+    {
+      "id": "airplane",
+      "title": "Airplane",
+      "loop_s": 100.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "airplane/airplane_flat.wav",
+        "bytes": 28800044,
+        "sha256": "fb9911f8ef4b2e5edd57c876575fe05056cd3ee48294cd3de48ac669863bcb1d"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "airplane/airplane_0p1Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "eed75d8d2ac83ca24da3b12bd1bacd26c41529d100112edc8f31b458437aa57b"
+          },
+          "envelope_csv": {
+            "path": "airplane/airplane_0p1Hz_tone_envelope.csv",
+            "bytes": 70845,
+            "sha256": "9e7b2d38f9d85a7e229161d48b52dc32c1a9c3024b14e1b8c010fcddec5924cf"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 10,
+            "depth_db": 6.4,
+            "tilt_db": 4.8,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 1000.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.15,
+            20.15,
+            30.0,
+            39.8,
+            49.65,
+            59.45,
+            69.4,
+            79.65,
+            89.9
+          ],
+          "crests_s": [
+            4.05,
+            14.15,
+            24.1,
+            33.9,
+            43.75,
+            53.55,
+            63.4,
+            73.45,
+            83.7,
+            93.95
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": -0.01,
+            "eeg_peak_excess_db": 0.7,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 2.07,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -10.03,
+            "loop_seam_jump": 0.000513,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "airplane/airplane_0p2Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "6d9a27ba1d95315b1c2925ee50ae4bee59999e202f232e669ab08a4de65e2fe6"
+          },
+          "envelope_csv": {
+            "path": "airplane/airplane_0p2Hz_tone_envelope.csv",
+            "bytes": 70842,
+            "sha256": "4fd100ecc66ce3f7ebf0232e577c8c385138a1c4aadda084b34cb752a7b75459"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 20,
+            "depth_db": 4.8,
+            "tilt_db": 4.0,
+            "pan_width": 0.12,
+            "rise_frac": 0.38,
+            "xover_hz": 1000.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.05,
+            10.1,
+            15.15,
+            20.1,
+            24.95,
+            29.85,
+            34.85,
+            39.8,
+            44.8,
+            49.75,
+            54.75,
+            59.85,
+            64.95,
+            69.95,
+            74.9,
+            79.85,
+            84.8,
+            89.85,
+            94.95
+          ],
+          "crests_s": [
+            1.9,
+            6.95,
+            12.0,
+            17.0,
+            21.9,
+            26.8,
+            31.75,
+            36.7,
+            41.7,
+            46.65,
+            51.65,
+            56.65,
+            61.75,
+            66.85,
+            71.8,
+            76.75,
+            81.7,
+            86.7,
+            91.8,
+            96.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": -0.0,
+            "eeg_peak_excess_db": 0.6,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.45,
+            "transients_excess_per_min": 0.6,
+            "peak_dbfs": -9.36,
+            "loop_seam_jump": 0.000582,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "airplane/airplane_0p25Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "b5933605a8572dcc70526cdd2de87ec532f1050d02083368a16818b2de12074e"
+          },
+          "envelope_csv": {
+            "path": "airplane/airplane_0p25Hz_tone_envelope.csv",
+            "bytes": 70844,
+            "sha256": "a7d82422d9def2a5e3d977abbb239e33fcdd94648f29539b86b4257ee30717be"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 25,
+            "depth_db": 4.0,
+            "tilt_db": 3.2,
+            "pan_width": 0.2,
+            "rise_frac": 0.35,
+            "xover_hz": 1000.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.95,
+            15.9,
+            19.9,
+            23.95,
+            27.95,
+            32.05,
+            36.15,
+            40.15,
+            44.1,
+            48.05,
+            52.0,
+            55.9,
+            59.85,
+            63.95,
+            68.05,
+            72.1,
+            76.1,
+            80.1,
+            84.05,
+            88.05,
+            92.05,
+            96.0
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.3,
+            29.35,
+            33.45,
+            37.5,
+            41.5,
+            45.45,
+            49.4,
+            53.35,
+            57.25,
+            61.25,
+            65.35,
+            69.45,
+            73.5,
+            77.45,
+            81.45,
+            85.45,
+            89.45,
+            93.4,
+            97.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.0,
+            "eeg_peak_excess_db": 0.4,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.1,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -9.76,
+            "loop_seam_jump": 0.000629,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.06,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.8,
+        "tilt": 0.8,
+        "pan": 0.8,
+        "xover": 1000.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "A long-haul airplane cabin at night in smooth cruise, heard from a seat over the wing. A deep, even engine drone blended into soft broadband air noise, muffled and warm, cabin lights dimmed. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_01.wav",
+          "take_03.wav",
+          "take_04.wav",
+          "take_05.wav"
+        ]
+      }
+    },
+    {
+      "id": "car_night",
+      "title": "Car Night",
+      "loop_s": 100.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "car_night/car_night_flat.wav",
+        "bytes": 28800044,
+        "sha256": "912d60c56d67cb130eb732755bb358ad35ed98f9452cd953bc081fd58b679277"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "car_night/car_night_0p1Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "1088aeea79ba075bf55de60f93716a926d9dc781901318ce0307bb8bee960aa4"
+          },
+          "envelope_csv": {
+            "path": "car_night/car_night_0p1Hz_tone_envelope.csv",
+            "bytes": 70845,
+            "sha256": "9e7b2d38f9d85a7e229161d48b52dc32c1a9c3024b14e1b8c010fcddec5924cf"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 10,
+            "depth_db": 6.4,
+            "tilt_db": 4.8,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.15,
+            20.15,
+            30.0,
+            39.8,
+            49.65,
+            59.45,
+            69.4,
+            79.65,
+            89.9
+          ],
+          "crests_s": [
+            4.05,
+            14.15,
+            24.1,
+            33.9,
+            43.75,
+            53.55,
+            63.4,
+            73.45,
+            83.7,
+            93.95
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.1,
+            "eeg_peak_excess_db": 1.7,
+            "eeg_peak_hz": 2.38,
+            "swell_excess_db": 2.18,
+            "transients_excess_per_min": 0.6,
+            "peak_dbfs": -9.93,
+            "loop_seam_jump": 0.001507,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "car_night/car_night_0p2Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "b3149fe24477ea64aa187567bcf6533e325f315fb074646aa396c10183132c2f"
+          },
+          "envelope_csv": {
+            "path": "car_night/car_night_0p2Hz_tone_envelope.csv",
+            "bytes": 70842,
+            "sha256": "4fd100ecc66ce3f7ebf0232e577c8c385138a1c4aadda084b34cb752a7b75459"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 20,
+            "depth_db": 4.8,
+            "tilt_db": 4.0,
+            "pan_width": 0.12,
+            "rise_frac": 0.38,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.05,
+            10.1,
+            15.15,
+            20.1,
+            24.95,
+            29.85,
+            34.85,
+            39.8,
+            44.8,
+            49.75,
+            54.75,
+            59.85,
+            64.95,
+            69.95,
+            74.9,
+            79.85,
+            84.8,
+            89.85,
+            94.95
+          ],
+          "crests_s": [
+            1.9,
+            6.95,
+            12.0,
+            17.0,
+            21.9,
+            26.8,
+            31.75,
+            36.7,
+            41.7,
+            46.65,
+            51.65,
+            56.65,
+            61.75,
+            66.85,
+            71.8,
+            76.75,
+            81.7,
+            86.7,
+            91.8,
+            96.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.1,
+            "eeg_peak_excess_db": 1.3,
+            "eeg_peak_hz": 2.38,
+            "swell_excess_db": 1.53,
+            "transients_excess_per_min": 0.6,
+            "peak_dbfs": -9.45,
+            "loop_seam_jump": 0.001794,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "car_night/car_night_0p25Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "4f626224def2559b327d1856d2dc2460b3100e7f6f973f128887fe3206b13d71"
+          },
+          "envelope_csv": {
+            "path": "car_night/car_night_0p25Hz_tone_envelope.csv",
+            "bytes": 70844,
+            "sha256": "a7d82422d9def2a5e3d977abbb239e33fcdd94648f29539b86b4257ee30717be"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 25,
+            "depth_db": 4.0,
+            "tilt_db": 3.2,
+            "pan_width": 0.2,
+            "rise_frac": 0.35,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.95,
+            15.9,
+            19.9,
+            23.95,
+            27.95,
+            32.05,
+            36.15,
+            40.15,
+            44.1,
+            48.05,
+            52.0,
+            55.9,
+            59.85,
+            63.95,
+            68.05,
+            72.1,
+            76.1,
+            80.1,
+            84.05,
+            88.05,
+            92.05,
+            96.0
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.3,
+            29.35,
+            33.45,
+            37.5,
+            41.5,
+            45.45,
+            49.4,
+            53.35,
+            57.25,
+            61.25,
+            65.35,
+            69.45,
+            73.5,
+            77.45,
+            81.45,
+            85.45,
+            89.45,
+            93.4,
+            97.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.09,
+            "eeg_peak_excess_db": 1.5,
+            "eeg_peak_hz": 2.38,
+            "swell_excess_db": 1.25,
+            "transients_excess_per_min": 0.6,
+            "peak_dbfs": -10.16,
+            "loop_seam_jump": 0.002011,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.06,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.8,
+        "tilt": 0.8,
+        "pan": 0.8,
+        "xover": 1200.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "The back seat of a well-insulated car cruising at constant speed on fresh, smooth highway asphalt at night. A soft continuous tire roar, a low steady engine hum and a gentle hush of air around the closed windows. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_01.wav",
+          "take_03.wav",
+          "take_04.wav",
+          "take_05.wav"
+        ]
+      }
+    },
+    {
+      "id": "ocean_distant",
+      "title": "Ocean Distant",
+      "loop_s": 100.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "ocean_distant/ocean_distant_flat.wav",
+        "bytes": 28800044,
+        "sha256": "9a7c4bbf461f2300d577d0a2b1c672e2131c079065f11f391fe2c25b3db60305"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "ocean_distant/ocean_distant_0p1Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "563baedaa07fe35622e984241c786fb792953444f9096f48dbf83a9b603b2f2e"
+          },
+          "envelope_csv": {
+            "path": "ocean_distant/ocean_distant_0p1Hz_tone_envelope.csv",
+            "bytes": 70845,
+            "sha256": "b8915bf01dbe3737cf4ab9a378541a1a316c6f2328855dd7ebe37de964c7500a"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 10,
+            "depth_db": 8.0,
+            "tilt_db": 6.0,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.15,
+            20.15,
+            30.0,
+            39.8,
+            49.65,
+            59.45,
+            69.4,
+            79.65,
+            89.9
+          ],
+          "crests_s": [
+            4.05,
+            14.15,
+            24.1,
+            33.9,
+            43.75,
+            53.55,
+            63.4,
+            73.45,
+            83.7,
+            93.95
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.1,
+            "eeg_peak_excess_db": 2.6,
+            "eeg_peak_hz": 3.5,
+            "swell_excess_db": 2.98,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -9.24,
+            "loop_seam_jump": 0.007143,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "ocean_distant/ocean_distant_0p2Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "5b7e271d8c5f01f66e600fca6415c2f54fac7631799b5b26151162d17176c0f3"
+          },
+          "envelope_csv": {
+            "path": "ocean_distant/ocean_distant_0p2Hz_tone_envelope.csv",
+            "bytes": 70842,
+            "sha256": "75b38e9ebdfd14ed7a7ae9a29bc8daf6e874a7b0c20afcf9405b234cf757ee19"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 20,
+            "depth_db": 6.0,
+            "tilt_db": 5.0,
+            "pan_width": 0.15,
+            "rise_frac": 0.38,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.05,
+            10.1,
+            15.15,
+            20.1,
+            24.95,
+            29.85,
+            34.85,
+            39.8,
+            44.8,
+            49.75,
+            54.75,
+            59.85,
+            64.95,
+            69.95,
+            74.9,
+            79.85,
+            84.8,
+            89.85,
+            94.95
+          ],
+          "crests_s": [
+            1.9,
+            6.95,
+            12.0,
+            17.0,
+            21.9,
+            26.8,
+            31.75,
+            36.7,
+            41.7,
+            46.65,
+            51.65,
+            56.65,
+            61.75,
+            66.85,
+            71.8,
+            76.75,
+            81.7,
+            86.7,
+            91.8,
+            96.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.1,
+            "eeg_peak_excess_db": 2.4,
+            "eeg_peak_hz": 3.5,
+            "swell_excess_db": 2.27,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -9.6,
+            "loop_seam_jump": 0.009031,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "ocean_distant/ocean_distant_0p25Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "dd85ab56206bb12a1dfba036f2b600efdd2dfd796b17b348c5a1845d36f51122"
+          },
+          "envelope_csv": {
+            "path": "ocean_distant/ocean_distant_0p25Hz_tone_envelope.csv",
+            "bytes": 70844,
+            "sha256": "0d940ac5960578c0fda2c9c1c1e7102d882735ba63e3001d24b5799c74ca3c81"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 25,
+            "depth_db": 5.0,
+            "tilt_db": 4.0,
+            "pan_width": 0.25,
+            "rise_frac": 0.35,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.95,
+            15.9,
+            19.9,
+            23.95,
+            27.95,
+            32.05,
+            36.15,
+            40.15,
+            44.1,
+            48.05,
+            52.0,
+            55.9,
+            59.85,
+            63.95,
+            68.05,
+            72.1,
+            76.1,
+            80.1,
+            84.05,
+            88.05,
+            92.05,
+            96.0
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.3,
+            29.35,
+            33.45,
+            37.5,
+            41.5,
+            45.45,
+            49.4,
+            53.35,
+            57.25,
+            61.25,
+            65.35,
+            69.45,
+            73.5,
+            77.45,
+            81.45,
+            85.45,
+            89.45,
+            93.4,
+            97.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.09,
+            "eeg_peak_excess_db": 2.6,
+            "eeg_peak_hz": 3.5,
+            "swell_excess_db": 1.81,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -9.06,
+            "loop_seam_jump": 0.010533,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.06,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 1.0,
+        "tilt": 1.0,
+        "pan": 1.0,
+        "xover": 1200.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "Distant ocean surf heard from inside a beach house with the window open, a continuous soft wash of far-away waves blending into one steady roar. Constant level throughout, no swelling, no surges, no fades, no build-ups. No individual crashing waves, no seagulls, no wind gusts, no voices.",
+          "The steady low roar of the sea heard from a hilltop far inland, so distant that countless waves have merged into one smooth, continuous hush. Steady and unchanging from start to finish: one even, continuous texture.",
+          "The deep, even rumble of a vast ocean heard through the closed windows of a house on a cliff, a wide soft wall of sound with no single wave standing out. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_05.wav",
+          "take_06.wav",
+          "take_07.wav",
+          "take_08.wav"
+        ]
+      }
+    },
+    {
+      "id": "rain_soft",
+      "title": "Rain Soft",
+      "loop_s": 80.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "rain_soft/rain_soft_flat.wav",
+        "bytes": 23040044,
+        "sha256": "70cb67c312fd551e0377be70cc1d70d2c910188713ecf39ae058cf0a80de1954"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "rain_soft/rain_soft_0p1Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "a6003edf54a55b32720fbdcf665a98c4e3da1ac121641da487d8d7fa7d82121b"
+          },
+          "envelope_csv": {
+            "path": "rain_soft/rain_soft_0p1Hz_tone_envelope.csv",
+            "bytes": 56644,
+            "sha256": "b2aeb78a9cff3dd47b9f778c12d380632e92e76de37c261d0c49e3ca151818e6"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 8,
+            "depth_db": 5.6,
+            "tilt_db": 6.0,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 2500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.25,
+            20.35,
+            30.25,
+            40.0,
+            49.7,
+            59.65,
+            69.85
+          ],
+          "crests_s": [
+            4.1,
+            14.3,
+            24.3,
+            34.1,
+            43.85,
+            53.6,
+            63.7,
+            73.9
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.47,
+            "eeg_peak_excess_db": 5.7,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 2.16,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -6.29,
+            "loop_seam_jump": 0.002666,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "rain_soft/rain_soft_0p2Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "034375f6e00caea67c83a499c19ef8732059ac6415597638f28473a0bf61ae7b"
+          },
+          "envelope_csv": {
+            "path": "rain_soft/rain_soft_0p2Hz_tone_envelope.csv",
+            "bytes": 56643,
+            "sha256": "e90e1664c9dd4e8c0d7af7d3f580c0e22a95e5ca7473e7d0cfc0ad7b98a111b0"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 16,
+            "depth_db": 4.2,
+            "tilt_db": 5.0,
+            "pan_width": 0.12,
+            "rise_frac": 0.38,
+            "xover_hz": 2500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.15,
+            10.25,
+            15.2,
+            20.05,
+            24.95,
+            29.95,
+            34.95,
+            39.95,
+            44.95,
+            50.0,
+            55.05,
+            60.0,
+            64.95,
+            69.95,
+            75.0
+          ],
+          "crests_s": [
+            1.95,
+            7.05,
+            12.15,
+            17.05,
+            21.9,
+            26.85,
+            31.85,
+            36.85,
+            41.85,
+            46.85,
+            51.95,
+            56.95,
+            61.85,
+            66.8,
+            71.85,
+            76.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.47,
+            "eeg_peak_excess_db": 5.9,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.58,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -4.82,
+            "loop_seam_jump": 0.003171,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "rain_soft/rain_soft_0p25Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "b04916c6bbf8f440623fb68557cb3fa994d29f4622bd764ce048b410d53dc644"
+          },
+          "envelope_csv": {
+            "path": "rain_soft/rain_soft_0p25Hz_tone_envelope.csv",
+            "bytes": 56642,
+            "sha256": "1c7b2b84e855855f197c3209e42d106c82f26234fea063b5ad47d87773f6a795"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 20,
+            "depth_db": 3.5,
+            "tilt_db": 4.0,
+            "pan_width": 0.2,
+            "rise_frac": 0.35,
+            "xover_hz": 2500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.9,
+            15.9,
+            19.95,
+            23.95,
+            28.0,
+            31.95,
+            35.9,
+            39.8,
+            43.75,
+            47.8,
+            51.9,
+            56.0,
+            60.05,
+            64.0,
+            68.0,
+            72.0,
+            76.05
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.35,
+            29.35,
+            33.35,
+            37.25,
+            41.15,
+            45.15,
+            49.2,
+            53.3,
+            57.4,
+            61.4,
+            65.4,
+            69.4,
+            73.4,
+            77.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.47,
+            "eeg_peak_excess_db": 5.8,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.25,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -4.14,
+            "loop_seam_jump": 0.00359,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.0625,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.7,
+        "tilt": 1.0,
+        "pan": 0.8,
+        "xover": 2500.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "Heavy steady rain heard from inside a quiet house through a closed window, muffled and distant. One dense, continuous, soft roar in which the drops blend together into an even wash; no single drops, drips or taps stand out. Constant level throughout, no swelling, no surges, no fades, no build-ups. No thunder, no wind gusts, no dripping gutters, no splashes, no birds.",
+          "Heavy steady rain heard from inside a quiet house through a closed window, muffled and distant: one dense, soft roar in which countless drops blend into an even wash. Steady and unchanging from start to finish: one even, continuous texture.",
+          "Steady heavy rain on a roof, heard from a cozy room on the floor below, so muffled that it becomes one smooth, low, enveloping hush. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_14.wav",
+          "take_16.wav",
+          "take_17.wav"
+        ]
+      }
+    },
+    {
+      "id": "river",
+      "title": "River",
+      "loop_s": 80.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "river/river_flat.wav",
+        "bytes": 23040044,
+        "sha256": "5c50a18887c879ff5268a9be60738204b3fe2f33b8bb302138fa102259790b1c"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "river/river_0p1Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "50648412e26e6d37dc2f5ab5e9f728fd80e6d16631f9778bbd893d548f0d2c0b"
+          },
+          "envelope_csv": {
+            "path": "river/river_0p1Hz_tone_envelope.csv",
+            "bytes": 56644,
+            "sha256": "7292975851ed1bfd1c5713bd54465102333a5f991203d380c260e4d040a3e0fc"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 8,
+            "depth_db": 6.4,
+            "tilt_db": 4.8,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 1500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.25,
+            20.35,
+            30.25,
+            40.0,
+            49.7,
+            59.65,
+            69.85
+          ],
+          "crests_s": [
+            4.1,
+            14.3,
+            24.3,
+            34.1,
+            43.85,
+            53.6,
+            63.7,
+            73.9
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.21,
+            "eeg_peak_excess_db": 1.9,
+            "eeg_peak_hz": 2.5,
+            "swell_excess_db": 2.59,
+            "transients_excess_per_min": 0.8,
+            "peak_dbfs": -8.65,
+            "loop_seam_jump": 0.014556,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "river/river_0p2Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "347eaf61b9e975e4d24e1e82b10aec91ab8237fda8e2bea497b35223a490c2ed"
+          },
+          "envelope_csv": {
+            "path": "river/river_0p2Hz_tone_envelope.csv",
+            "bytes": 56643,
+            "sha256": "12a13acd61c2ccbd9ad4a2e764a718bac2d90ad42abbb4d8ddb674e4c6aeca43"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 16,
+            "depth_db": 4.8,
+            "tilt_db": 4.0,
+            "pan_width": 0.15,
+            "rise_frac": 0.38,
+            "xover_hz": 1500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.15,
+            10.25,
+            15.2,
+            20.05,
+            24.95,
+            29.95,
+            34.95,
+            39.95,
+            44.95,
+            50.0,
+            55.05,
+            60.0,
+            64.95,
+            69.95,
+            75.0
+          ],
+          "crests_s": [
+            1.95,
+            7.05,
+            12.15,
+            17.05,
+            21.9,
+            26.85,
+            31.85,
+            36.85,
+            41.85,
+            46.85,
+            51.95,
+            56.95,
+            61.85,
+            66.8,
+            71.85,
+            76.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.21,
+            "eeg_peak_excess_db": 1.8,
+            "eeg_peak_hz": 2.5,
+            "swell_excess_db": 1.87,
+            "transients_excess_per_min": 0.8,
+            "peak_dbfs": -7.94,
+            "loop_seam_jump": 0.017643,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "river/river_0p25Hz_tone.wav",
+            "bytes": 23040044,
+            "sha256": "56e54fdd723e9942a566bd701043f1ed4dd022d85642bb97ddaa539d12b9713a"
+          },
+          "envelope_csv": {
+            "path": "river/river_0p25Hz_tone_envelope.csv",
+            "bytes": 56642,
+            "sha256": "c0d5995dde0a1b74087f2c83787a45c39da3e856a8972cbb195728020b88b0d5"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 20,
+            "depth_db": 4.0,
+            "tilt_db": 3.2,
+            "pan_width": 0.25,
+            "rise_frac": 0.35,
+            "xover_hz": 1500.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.9,
+            15.9,
+            19.95,
+            23.95,
+            28.0,
+            31.95,
+            35.9,
+            39.8,
+            43.75,
+            47.8,
+            51.9,
+            56.0,
+            60.05,
+            64.0,
+            68.0,
+            72.0,
+            76.05
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.35,
+            29.35,
+            33.35,
+            37.25,
+            41.15,
+            45.15,
+            49.2,
+            53.3,
+            57.4,
+            61.4,
+            65.4,
+            69.4,
+            73.4,
+            77.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.22,
+            "eeg_peak_excess_db": 2.1,
+            "eeg_peak_hz": 2.5,
+            "swell_excess_db": 1.57,
+            "transients_excess_per_min": 0.8,
+            "peak_dbfs": -9.01,
+            "loop_seam_jump": 0.02002,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.0625,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.8,
+        "tilt": 0.8,
+        "pan": 1.0,
+        "xover": 1500.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "A wide, deep river flowing steadily, heard from a grassy bank a short way back: a smooth, dense water wash with a soft, even gurgle woven through it. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_01.wav",
+          "take_02.wav",
+          "take_03.wav"
+        ]
+      }
+    },
+    {
+      "id": "train_smooth",
+      "title": "Train Smooth",
+      "loop_s": 100.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "train_smooth/train_smooth_flat.wav",
+        "bytes": 28800044,
+        "sha256": "d2e6a8275bed36af1c7ebdf4ac2ff807f34b30970f5e9fee468e2886d693f989"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "train_smooth/train_smooth_0p1Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "9b3f4244a107498e8e19d90c4adcd1bcb1cc5355090fa84bdb2e68fa44514ca0"
+          },
+          "envelope_csv": {
+            "path": "train_smooth/train_smooth_0p1Hz_tone_envelope.csv",
+            "bytes": 70845,
+            "sha256": "9e7b2d38f9d85a7e229161d48b52dc32c1a9c3024b14e1b8c010fcddec5924cf"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 10,
+            "depth_db": 6.4,
+            "tilt_db": 4.8,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.15,
+            20.15,
+            30.0,
+            39.8,
+            49.65,
+            59.45,
+            69.4,
+            79.65,
+            89.9
+          ],
+          "crests_s": [
+            4.05,
+            14.15,
+            24.1,
+            33.9,
+            43.75,
+            53.55,
+            63.4,
+            73.45,
+            83.7,
+            93.95
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.3,
+            "eeg_peak_excess_db": 1.5,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 2.18,
+            "transients_excess_per_min": 0.4,
+            "peak_dbfs": -9.56,
+            "loop_seam_jump": 0.000798,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "train_smooth/train_smooth_0p2Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "f22a591ec9bafbda7975d4d5bbc531c738a5ed2a2a07d1b41557d1ef91431539"
+          },
+          "envelope_csv": {
+            "path": "train_smooth/train_smooth_0p2Hz_tone_envelope.csv",
+            "bytes": 70842,
+            "sha256": "4fd100ecc66ce3f7ebf0232e577c8c385138a1c4aadda084b34cb752a7b75459"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 20,
+            "depth_db": 4.8,
+            "tilt_db": 4.0,
+            "pan_width": 0.12,
+            "rise_frac": 0.38,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.05,
+            10.1,
+            15.15,
+            20.1,
+            24.95,
+            29.85,
+            34.85,
+            39.8,
+            44.8,
+            49.75,
+            54.75,
+            59.85,
+            64.95,
+            69.95,
+            74.9,
+            79.85,
+            84.8,
+            89.85,
+            94.95
+          ],
+          "crests_s": [
+            1.9,
+            6.95,
+            12.0,
+            17.0,
+            21.9,
+            26.8,
+            31.75,
+            36.7,
+            41.7,
+            46.65,
+            51.65,
+            56.65,
+            61.75,
+            66.85,
+            71.8,
+            76.75,
+            81.7,
+            86.7,
+            91.8,
+            96.85
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.29,
+            "eeg_peak_excess_db": 1.7,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.58,
+            "transients_excess_per_min": 0.4,
+            "peak_dbfs": -10.28,
+            "loop_seam_jump": 0.000888,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "train_smooth/train_smooth_0p25Hz_tone.wav",
+            "bytes": 28800044,
+            "sha256": "cf8f00c0b829f3ce7f187c4f374f3a59a68fe3f80e5feec1148125efec30152f"
+          },
+          "envelope_csv": {
+            "path": "train_smooth/train_smooth_0p25Hz_tone_envelope.csv",
+            "bytes": 70844,
+            "sha256": "a7d82422d9def2a5e3d977abbb239e33fcdd94648f29539b86b4257ee30717be"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 25,
+            "depth_db": 4.0,
+            "tilt_db": 3.2,
+            "pan_width": 0.2,
+            "rise_frac": 0.35,
+            "xover_hz": 1200.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.95,
+            11.95,
+            15.9,
+            19.9,
+            23.95,
+            27.95,
+            32.05,
+            36.15,
+            40.15,
+            44.1,
+            48.05,
+            52.0,
+            55.9,
+            59.85,
+            63.95,
+            68.05,
+            72.1,
+            76.1,
+            80.1,
+            84.05,
+            88.05,
+            92.05,
+            96.0
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.3,
+            13.3,
+            17.3,
+            21.3,
+            25.3,
+            29.35,
+            33.45,
+            37.5,
+            41.5,
+            45.45,
+            49.4,
+            53.35,
+            57.25,
+            61.25,
+            65.35,
+            69.45,
+            73.5,
+            77.45,
+            81.45,
+            85.45,
+            89.45,
+            93.4,
+            97.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.28,
+            "eeg_peak_excess_db": 1.6,
+            "eeg_peak_hz": 3.25,
+            "swell_excess_db": 1.27,
+            "transients_excess_per_min": 0.4,
+            "peak_dbfs": -9.99,
+            "loop_seam_jump": 0.000932,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.06,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.8,
+        "tilt": 0.8,
+        "pan": 0.8,
+        "xover": 1200.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "Inside an empty modern high-speed train at night, heard from a padded seat. A deep, smooth rumble under a soft broadband air hiss, the faint even hum of wheels on welded rails and a warm cabin resonance. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_01.wav",
+          "take_02.wav",
+          "take_03.wav",
+          "take_06.wav"
+        ]
+      }
+    },
+    {
+      "id": "wind_pines",
+      "title": "Wind Pines",
+      "loop_s": 120.0,
+      "rates_hz": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "flat": {
+        "path": "wind_pines/wind_pines_flat.wav",
+        "bytes": 34560044,
+        "sha256": "192d6455d2da7b5cdac9082381dd5555c5071cbe3328b84c7b3c30b76585ec6f"
+      },
+      "loops": [
+        {
+          "rate_hz": 0.1,
+          "tone": true,
+          "audio": {
+            "path": "wind_pines/wind_pines_0p1Hz_tone.wav",
+            "bytes": 34560044,
+            "sha256": "f90e3b88fc452fb8b8311b3920adc57f613e15e85ae285f32ed85946884029da"
+          },
+          "envelope_csv": {
+            "path": "wind_pines/wind_pines_0p1Hz_tone_envelope.csv",
+            "bytes": 85444,
+            "sha256": "79e60d3678739c298374a358ab7783d305228e053e4d75b73afbd1c3e04209fa"
+          },
+          "swell": {
+            "rate_hz": 0.1,
+            "waves": 12,
+            "depth_db": 6.4,
+            "tilt_db": 3.6,
+            "pan_width": 0.0,
+            "rise_frac": 0.4,
+            "xover_hz": 900.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            10.15,
+            20.35,
+            30.55,
+            40.65,
+            50.6,
+            60.5,
+            70.25,
+            79.95,
+            89.8,
+            99.85,
+            109.95
+          ],
+          "crests_s": [
+            4.05,
+            14.2,
+            24.45,
+            34.6,
+            44.65,
+            54.55,
+            64.4,
+            74.1,
+            83.85,
+            93.8,
+            103.85,
+            113.95
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.12,
+            "eeg_peak_excess_db": 1.3,
+            "eeg_peak_hz": 3.0,
+            "swell_excess_db": 2.54,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -9.04,
+            "loop_seam_jump": 0.015997,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.2,
+          "tone": true,
+          "audio": {
+            "path": "wind_pines/wind_pines_0p2Hz_tone.wav",
+            "bytes": 34560044,
+            "sha256": "b1313135c1cc53662fd10ad579d6de805f86af07ce7ce730f4ba02b24ddcafb1"
+          },
+          "envelope_csv": {
+            "path": "wind_pines/wind_pines_0p2Hz_tone_envelope.csv",
+            "bytes": 85443,
+            "sha256": "b5bba98ce0d3aaf17a45043a4f841068ee724882729f13d1c77a502120040686"
+          },
+          "swell": {
+            "rate_hz": 0.2,
+            "waves": 24,
+            "depth_db": 4.8,
+            "tilt_db": 3.0,
+            "pan_width": 0.15,
+            "rise_frac": 0.38,
+            "xover_hz": 900.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            5.05,
+            10.15,
+            15.2,
+            20.15,
+            25.1,
+            30.05,
+            35.05,
+            40.0,
+            45.0,
+            50.0,
+            55.05,
+            60.0,
+            65.0,
+            70.0,
+            75.05,
+            80.15,
+            85.1,
+            90.0,
+            94.9,
+            99.85,
+            104.9,
+            109.95,
+            115.0
+          ],
+          "crests_s": [
+            1.9,
+            6.95,
+            12.05,
+            17.05,
+            22.0,
+            26.95,
+            31.9,
+            36.9,
+            41.9,
+            46.9,
+            51.9,
+            56.9,
+            61.9,
+            66.9,
+            71.9,
+            76.95,
+            82.05,
+            86.95,
+            91.85,
+            96.75,
+            101.75,
+            106.8,
+            111.85,
+            116.9
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.12,
+            "eeg_peak_excess_db": 1.9,
+            "eeg_peak_hz": 3.38,
+            "swell_excess_db": 1.9,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -8.28,
+            "loop_seam_jump": 0.019313,
+            "eeg_band_clean": "True"
+          }
+        },
+        {
+          "rate_hz": 0.25,
+          "tone": true,
+          "audio": {
+            "path": "wind_pines/wind_pines_0p25Hz_tone.wav",
+            "bytes": 34560044,
+            "sha256": "2beaa41edff888be98252dd80c91deac1bbfa2a8054a0198fe5bdfc3ccd0e86e"
+          },
+          "envelope_csv": {
+            "path": "wind_pines/wind_pines_0p25Hz_tone_envelope.csv",
+            "bytes": 85446,
+            "sha256": "cca9b725b4c49ca638411a1ecdbe0127dc743128391fa6e67f6c0d521d36d8dc"
+          },
+          "swell": {
+            "rate_hz": 0.25,
+            "waves": 30,
+            "depth_db": 4.0,
+            "tilt_db": 2.4,
+            "pan_width": 0.25,
+            "rise_frac": 0.35,
+            "xover_hz": 900.0,
+            "period_jitter": 0.03,
+            "depth_jitter": 0.1
+          },
+          "troughs_s": [
+            0.0,
+            4.0,
+            7.9,
+            11.85,
+            15.85,
+            19.85,
+            23.8,
+            27.75,
+            31.65,
+            35.6,
+            39.7,
+            43.8,
+            47.9,
+            51.95,
+            55.85,
+            59.8,
+            63.75,
+            67.7,
+            71.65,
+            75.6,
+            79.65,
+            83.7,
+            87.85,
+            91.9,
+            95.95,
+            99.95,
+            103.95,
+            107.95,
+            111.95,
+            116.0
+          ],
+          "crests_s": [
+            1.4,
+            5.35,
+            9.25,
+            13.2,
+            17.2,
+            21.2,
+            25.15,
+            29.1,
+            33.05,
+            37.0,
+            41.1,
+            45.2,
+            49.35,
+            53.3,
+            57.2,
+            61.15,
+            65.15,
+            69.05,
+            73.0,
+            77.0,
+            81.05,
+            85.15,
+            89.25,
+            93.3,
+            97.35,
+            101.35,
+            105.35,
+            109.35,
+            113.35,
+            117.4
+          ],
+          "qa": {
+            "rms_dbfs": -26.0,
+            "eeg_band_excess_db": 0.11,
+            "eeg_peak_excess_db": 1.4,
+            "eeg_peak_hz": 3.38,
+            "swell_excess_db": 1.53,
+            "transients_excess_per_min": 0.0,
+            "peak_dbfs": -8.95,
+            "loop_seam_jump": 0.021753,
+            "eeg_band_clean": "True"
+          }
+        }
+      ],
+      "tone": {
+        "level_db_vs_bed": -12.0,
+        "root_hz": 88.0,
+        "chord": "1,3/2,2,3,4",
+        "partials_hz": [
+          88.0,
+          132.0,
+          176.0,
+          264.0,
+          352.0,
+          396.0,
+          528.0,
+          704.0,
+          792.0,
+          1056.0
+        ],
+        "dropped": [],
+        "detune_hz": 0.0583,
+        "carrier_guard_hz": 20.0
+      },
+      "profile": {
+        "depth": 0.8,
+        "tilt": 0.6,
+        "pan": 1.0,
+        "xover": 900.0
+      },
+      "source": {
+        "generator": "elevenlabs",
+        "model": "eleven_text_to_sound_v3",
+        "prompts": [
+          "A soft, constant breeze high in tall pine trees at night, heard from a sheltered clearing: a smooth airy hush of countless needles. Steady and unchanging from start to finish: one even, continuous texture."
+        ],
+        "takes": [
+          "take_08.wav",
+          "take_02.wav",
+          "take_03.wav",
+          "take_04.wav",
+          "take_05.wav"
+        ]
+      }
+    }
+  ]
+}

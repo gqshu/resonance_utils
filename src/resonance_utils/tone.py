@@ -6,7 +6,8 @@ soft harmonics (1/h^2), and three slightly detuned copies per partial spread acr
 stereo field for slow shimmer. Upper harmonics fade in toward each crest and out in the trough.
 
 Safety rules, so the layer can't interfere with the app's beat/AM or with the EEG:
-  * no partial within +/-CARRIER_GUARD_HZ of the binaural carrier (it would beat against it)
+  * no partial within +/-CARRIER_GUARD_HZ of any binaural carrier the app may use (it would
+    beat against the carrier's tones)
   * no two partials 0.5-20 Hz apart: that difference beats as amplitude modulation in the
     EEG band, including 12-16 Hz sleep spindles. Just ratios make harmonics coincide exactly
     (coinciding partials are merged); any clash drops the weaker partial
@@ -20,7 +21,8 @@ import numpy as np
 
 from .audio_io import FS
 
-DEFAULT_ROOT_HZ = 55.0                 # A1; see plan_partials for why it clears a 144 Hz carrier
+DEFAULT_ROOT_HZ = 88.0                 # ~F2. With the default chord every partial is >= 22 Hz from
+                                       # carriers 110, 220 and 440 Hz (A roots sit right on them)
 DEFAULT_CHORD = "1,3/2,2,3,4"          # root, fifth, octave, twelfth, double octave (just)
 HARMONICS = 4
 F_MAX_HZ = 1200.0
@@ -35,8 +37,10 @@ def parse_chord(s):
     return [float(Fraction(t.strip())) for t in s.split(",") if t.strip()]
 
 
-def plan_partials(root, ratios, carrier):
-    """List the partials to synthesise, plus the ones dropped and why."""
+def plan_partials(root, ratios, carriers):
+    """List the partials to synthesise, plus the ones dropped and why. carriers: one Hz value
+    or a list of every carrier the app may use."""
+    carriers = [c for c in (carriers if isinstance(carriers, (list, tuple)) else [carriers]) if c]
     parts, dropped = [], []
     for v, r in enumerate(ratios):
         for h in range(1, HARMONICS + 1):
@@ -44,8 +48,9 @@ def plan_partials(root, ratios, carrier):
             if f > F_MAX_HZ:
                 continue
             p = dict(voice=v, h=h, f=round(f, 3), amp=(1.0 / (1.0 + 0.3 * v)) / h ** 2)
-            if carrier and abs(f - carrier) < CARRIER_GUARD_HZ:
-                dropped.append({**p, "why": f"within {CARRIER_GUARD_HZ:g} Hz of the {carrier:g} Hz carrier"})
+            near = [c for c in carriers if abs(f - c) < CARRIER_GUARD_HZ]
+            if near:
+                dropped.append({**p, "why": f"within {CARRIER_GUARD_HZ:g} Hz of the {near[0]:g} Hz carrier"})
                 continue
             parts.append(p)
     kept = []
@@ -62,10 +67,10 @@ def plan_partials(root, ratios, carrier):
     return sorted(kept, key=lambda q: q["f"]), dropped
 
 
-def render_tone_stems(n, root=DEFAULT_ROOT_HZ, chord=DEFAULT_CHORD, carrier=None, seed=0, chunk_s=10.0):
+def render_tone_stems(n, root=DEFAULT_ROOT_HZ, chord=DEFAULT_CHORD, carriers=None, seed=0, chunk_s=10.0):
     """Render the layer once as two static loops: fundamentals and upper harmonics.
     mix_tone() then shapes them with each rate's swell envelope. Returns (fund, upper, info)."""
-    kept, dropped = plan_partials(root, parse_chord(chord), carrier)
+    kept, dropped = plan_partials(root, parse_chord(chord), carriers)
     rng = np.random.default_rng(seed + 5000)
     dk = max(1, round(DETUNE_HZ * n / FS))             # detune in FFT bins of the loop
     drift = {v: (int(rng.integers(1, 4)), rng.uniform(0, 2 * np.pi)) for v in {p["voice"] for p in kept}}

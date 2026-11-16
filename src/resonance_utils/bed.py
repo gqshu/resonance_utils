@@ -36,7 +36,7 @@ THRESH = dict(
     swell_reject_db=3.0,         # level swell > this: reported as a built-in swell
     swell_after_max_db=0.75,     # after conditioning, level AND brightness swell must be below this
     bright_xover_hz=1500.0,      # treble/bass split for the brightness-swell measure
-    hum_window_hz=20.0,          # look for tonal lines within carrier +/- this
+    hum_window_hz=20.0,          # look for tonal lines within +/- this of each carrier
     hum_reject_db=10.0,          # line prominence over local spectral median (dB)
     transient_crest_db=6.0,      # 20 ms over 0.5 s envelope
     transient_max_per_min=6.0,   # reject if this many MORE events/min than surrogate
@@ -233,7 +233,7 @@ def brightness_swell(m):
     return band_std(r, 100, *THRESH["swell_band"])
 
 
-def screen(x, carrier):
+def screen(x):
     T = THRESH
     res, reasons, flags = {}, [], []
     edge = int(0.5 * FS)                               # ignore fade-in/out edges
@@ -269,23 +269,43 @@ def screen(x, carrier):
     if tr_x > T["transient_max_per_min"]:
         reasons.append(f"transients (+{tr_x:.0f}/min)")
 
-    if carrier:                                        # tonal line near the carrier
-        nfft = 1 << 14
-        segs = [m[i:i + nfft] * np.hanning(nfft) for i in range(0, len(m) - nfft, nfft // 2)]
-        P = np.mean([np.abs(sfft.rfft(s)) ** 2 for s in segs], 0)
-        f = sfft.rfftfreq(nfft, 1 / FS)
-        win = (f > carrier - T["hum_window_hz"]) & (f < carrier + T["hum_window_hz"])
-        ref = (f > carrier / 1.5) & (f < carrier * 1.5)
-        prom = 10 * np.log10(P[win].max() / np.median(P[ref]))
-        res["carrier_hum_prominence_db"] = round(float(prom), 1)
-        res["carrier_hum_freq_hz"] = round(float(f[win][np.argmax(P[win])]), 1)
-        if prom > T["hum_reject_db"]:
-            reasons.append(f"tonal line {res['carrier_hum_freq_hz']} Hz near carrier (+{prom:.0f} dB)")
-
     res["duration_s"] = round(len(x) / FS, 1)
     res["verdict"] = "reject" if reasons else "pass"
     res["reasons"], res["flags"] = reasons, flags
     return res
+
+
+def hum_measures(x, carriers):
+    """Tonal-line prominence (dB over the local spectral median) within +/-hum_window_hz of each
+    carrier. One averaged spectrum serves every carrier. Returns {"<c>": dict(prominence_db, freq_hz)}."""
+    T = THRESH
+    edge = int(0.5 * FS)
+    m = (x[edge:-edge] if len(x) > 4 * edge else x).mean(1)
+    nfft = 1 << 14
+    segs = [m[i:i + nfft] * np.hanning(nfft) for i in range(0, len(m) - nfft, nfft // 2)]
+    P = np.mean([np.abs(sfft.rfft(s)) ** 2 for s in segs], 0)
+    f = sfft.rfftfreq(nfft, 1 / FS)
+    out = {}
+    for c in carriers:
+        win = (f > c - T["hum_window_hz"]) & (f < c + T["hum_window_hz"])
+        ref = (f > c / 1.5) & (f < c * 1.5)
+        prom = 10 * np.log10(P[win].max() / (np.median(P[ref]) + 1e-30) + 1e-30)
+        out[f"{c:g}"] = dict(prominence_db=round(float(prom), 1), freq_hz=round(float(f[win][np.argmax(P[win])]), 1))
+    return out
+
+
+def with_hum(r, hum):
+    """Add the per-carrier hum verdicts to a carrier-free screening result."""
+    r = json.loads(json.dumps(r))
+    r["carrier_hum"] = hum
+    if hum:
+        worst = max(hum.values(), key=lambda h: h["prominence_db"])
+        r["carrier_hum_prominence_db"], r["carrier_hum_freq_hz"] = worst["prominence_db"], worst["freq_hz"]
+    for c, h in hum.items():
+        if h["prominence_db"] > THRESH["hum_reject_db"]:
+            r["reasons"].append(f"tonal line {h['freq_hz']} Hz near the {c} Hz carrier (+{h['prominence_db']:.0f} dB)")
+    r["verdict"] = "reject" if r["reasons"] else "pass"
+    return r
 
 
 # ===========================================================================
@@ -363,23 +383,27 @@ def notch_gain(f, carrier, depth_db=6.0, bw_oct=1 / 3):
     return 10 ** ((-depth_db * np.exp(-0.5 * (z * 1.18) ** 2)) / 20)
 
 
-def notch(x, carrier, depth_db=6.0):
-    """Static circular -6 dB 1/3-octave dip at the binaural carrier, so the app's tones sit clear."""
-    if not carrier:
+def notch(x, carriers, depth_db=6.0):
+    """Static circular -6 dB 1/3-octave dip at each binaural carrier the app may use, so its
+    tones sit clear whichever one it picks."""
+    carriers = [c for c in (carriers or []) if c]
+    if not carriers:
         return x
-    g = notch_gain(sfft.rfftfreq(len(x), 1 / FS), carrier, depth_db)
+    f = sfft.rfftfreq(len(x), 1 / FS)
+    g = np.prod([notch_gain(f, c, depth_db) for c in carriers], axis=0)
     return sfft.irfft(sfft.rfft(x, axis=0) * g[:, None], len(x), axis=0)
 
 
-def screen_take(x, carrier, do_condition=True):
+def screen_take(x, do_condition=True):
     """screen() plus the verdict on the take's own slow rhythm.
 
     A loudness or brightness swell is not a reason to reject by itself when conditioning will
     run: the take is conditioned and screened again, and kept only if both swells are then below
     swell_after_max_db. Rhythm in the EEG band, transients, hum, clipping and silence are judged
-    on the raw take and always reject."""
+    on the raw take and always reject.
+    Carrier hum is judged separately (hum_measures), so this result holds for any carrier."""
     T = THRESH
-    r = screen(x, carrier)
+    r = screen(x)
     swell_reason = r.pop("swell_reason", None)
     other = [q for q in r["reasons"] if q != swell_reason]
     r["flags"] = [q for q in r["flags"] if not q.startswith("swell")]
@@ -392,7 +416,7 @@ def screen_take(x, carrier, do_condition=True):
         r["reasons"] = [f"built-in swell {worst:+.2f} dB and conditioning is off"] \
             if worst > T["swell_after_max_db"] else []
     else:
-        c = screen(condition(x), carrier)
+        c = screen(condition(x))
         after = dict(swell_excess_db=c["swell_excess_db"], brightness_swell_excess_db=c["brightness_swell_excess_db"])
         r["after_conditioning"] = after
         desc = (f"own swell {r['swell_excess_db']:+.2f} dB level / {r['brightness_swell_excess_db']:+.2f} dB "
@@ -463,24 +487,32 @@ def match_tone(clips, balances, max_db):
     return out, applied
 
 
-SCREEN_VERSION = 3   # bump whenever a measurement changes, so cached verdicts get recomputed
+SCREEN_VERSION = 4   # bump whenever a measurement changes, so cached verdicts get recomputed
 
 
-def _screen_key(carrier, do_condition):
+def _screen_key(do_condition):
     import hashlib
-    t = {k: v for k, v in THRESH.items() if not k.startswith("tonal_")}   # grouping, not screening
-    blob = json.dumps(dict(v=SCREEN_VERSION, t=t, c=carrier, d=do_condition, b=CONDITION_BANDS_HZ),
+    t = {k: v for k, v in THRESH.items()                 # grouping and hum are not screening
+         if not k.startswith(("tonal_", "hum_"))}
+    blob = json.dumps(dict(v=SCREEN_VERSION, t=t, d=do_condition, b=CONDITION_BANDS_HZ),
                       sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:12]
 
 
-def screen_take_cached(path, x, carrier, do_condition=True):
-    """screen_take(), remembered in the take's sidecar JSON (raw takes only: files without a
-    sidecar, e.g. --from-dir, are always screened). x may be the audio or a loader callable,
-    called only on a cache miss. Returns (result, was_cached)."""
+def _hum_key(c):
+    return f"{c:g}@{THRESH['hum_window_hz']:g}"
+
+
+def screen_take_cached(path, x, carriers, do_condition=True):
+    """screen_take() plus hum at each carrier, remembered in the take's sidecar JSON (raw takes
+    only: files without a sidecar, e.g. --from-dir, are always screened). The screening result
+    is carrier-free; hum is cached per carrier, so adding a carrier costs one spectrum, not a
+    re-screen. x may be the audio or a loader callable, called only on a cache miss.
+    Returns (result, was_cached)."""
+    carriers = [c for c in (carriers or []) if c]
     side = os.path.splitext(path)[0] + ".json"
-    key = _screen_key(carrier, do_condition)
-    meta = None
+    key = _screen_key(do_condition)
+    meta, base = None, None
     if os.path.exists(side):
         try:
             with open(side) as fh:
@@ -489,16 +521,28 @@ def screen_take_cached(path, x, carrier, do_condition=True):
             meta = None
         hit = (meta or {}).get("screen", {})
         if hit.get("key") == key:
-            return json.loads(json.dumps(hit["result"])), True
-    r = screen_take(x() if callable(x) else x, carrier, do_condition)
-    if meta is not None:
-        meta["screen"] = {"key": key, "result": r}
-        with open(side, "w") as fh:
-            json.dump(meta, fh, indent=2, default=str)
-    return r, False
+            base = hit["result"]
+    hums = dict((meta or {}).get("hum", {}))
+    need = [c for c in carriers if _hum_key(c) not in hums]
+    cached = base is not None and not need
+    if not cached:
+        if callable(x):
+            x = x()
+        if base is None:
+            base = screen_take(x, do_condition)
+        if need:
+            got = hum_measures(x, need)
+            for c in need:
+                hums[_hum_key(c)] = got[f"{c:g}"]
+        if meta is not None:
+            meta["screen"] = {"key": key, "result": base}
+            meta["hum"] = hums
+            with open(side, "w") as fh:
+                json.dump(meta, fh, indent=2, default=str)
+    return with_hum(base, {f"{c:g}": hums[_hum_key(c)] for c in carriers}), cached
 
 
-def build_bed(paths, carrier, loop_unit_s, loop_seconds=None, seed=1, min_pass=3,
+def build_bed(paths, carriers, loop_unit_s, loop_seconds=None, seed=1, min_pass=3,
               do_condition=True):
     """Screen takes, join the passing ones into a loop whose length is a whole multiple of
     loop_unit_s (so every swell rate fits a whole number of waves), condition, notch, normalise.
@@ -508,7 +552,7 @@ def build_bed(paths, carrier, loop_unit_s, loop_seconds=None, seed=1, min_pass=3
     n_cached = 0
     for i, p in enumerate(paths):
         x = load_any(p, seed=i)
-        r, hit = screen_take_cached(p, x, carrier, do_condition)
+        r, hit = screen_take_cached(p, x, carriers, do_condition)
         n_cached += hit
         r["file"] = os.path.basename(p)
         takes.append(r)
@@ -566,6 +610,6 @@ def build_bed(paths, carrier, loop_unit_s, loop_seconds=None, seed=1, min_pass=3
     bed = close_loop(chain(clips, order, xf), n, xf)
     if do_condition:
         bed = condition(bed)
-    bed = normalise(notch(bed, carrier))
+    bed = normalise(notch(bed, carriers))
     report.update(built=True, order=[names[k] for k in order], loop_s=n / FS)
     return bed, report

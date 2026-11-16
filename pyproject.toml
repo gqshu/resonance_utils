@@ -28,6 +28,7 @@ dev = ["pytest>=7", "ruff>=0.4"]
 
 [project.scripts]
 ss_gen = "resonance_utils.ss_gen:main"
+ss_deploy = "resonance_utils.ss_deploy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -60,7 +60,7 @@ def scale_to_target(mix):
     return k * (ceil / pk if pk > ceil else 1.0)
 
 
-def qa(x, carrier):
+def qa(x):
     """Light QA for a finished output: only the modulation measures (the takes were already
     fully screened, and the bed is notched), against the same 3-surrogate baseline."""
     m = x.mean(1)
@@ -87,7 +87,7 @@ def write_envelope_csv(path, sw):
                      f"{sw['gain_db'][i]:.3f},{sw['pan'][i]:.4f}\n")
 
 
-def probe_scenario(name, a, carrier):
+def probe_scenario(name, a, carriers):
     """Generate a.probe takes per prompt variant, screen them, print a pass-rate table.
     Takes stay in the cache, so a probe's passing takes count towards a later build."""
     raw_dir = os.path.join(a.out, name, "raw")
@@ -105,7 +105,7 @@ def probe_scenario(name, a, carrier):
             continue
         res = []
         for i, p in enumerate(paths):
-            r, _ = bedmod.screen_take_cached(p, lambda: load_any(p, seed=i), carrier, not a.no_condition)
+            r, _ = bedmod.screen_take_cached(p, lambda: load_any(p, seed=i), carriers, not a.no_condition)
             r["file"] = os.path.basename(p)
             res.append(r)
             print(f"    {'PASS' if r['verdict'] == 'pass' else 'REJECT':6s} {r['file']}  "
@@ -135,7 +135,7 @@ def probe_scenario(name, a, carrier):
     return True
 
 
-def run_scenario(name, a, carrier, prompts=(), profile=None, paths=None):
+def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
     out_dir = os.path.join(a.out, name)
     raw_dir = os.path.join(out_dir, "raw")
     unit = swell.loop_unit_s(a.rates)
@@ -151,9 +151,9 @@ def run_scenario(name, a, carrier, prompts=(), profile=None, paths=None):
         if a.dry_run:
             return True
     os.makedirs(out_dir, exist_ok=True)
-    bed, report = bedmod.build_bed(paths, carrier, unit, a.loop_seconds, a.seed, a.min_pass,
+    bed, report = bedmod.build_bed(paths, carriers, unit, a.loop_seconds, a.seed, a.min_pass,
                                    do_condition=not a.no_condition)
-    report.update(name=name, prompts=list(prompts), model=a.model, profile=profile, carrier=carrier, rates=a.rates,
+    report.update(name=name, prompts=list(prompts), model=a.model, profile=profile, carriers=carriers, rates=a.rates,
                   thresholds=bedmod.THRESH)
     if bed is None:
         print(f"  {report['error']}")
@@ -167,7 +167,7 @@ def run_scenario(name, a, carrier, prompts=(), profile=None, paths=None):
     stems = None
     if a.tone:
         print("[3/3] tone layer (rendered once, shaped by each rate's swell below)")
-        fund, upper, tinfo = tone.render_tone_stems(n, a.tone_root, a.tone_chord, carrier, a.seed)
+        fund, upper, tinfo = tone.render_tone_stems(n, a.tone_root, a.tone_chord, carriers, a.seed)
         stems = (fund, upper)
         report["tone"] = tinfo
         print(f"  partials {tinfo['partials_hz']}" +
@@ -192,8 +192,8 @@ def run_scenario(name, a, carrier, prompts=(), profile=None, paths=None):
         if a.stems and t is not None:
             write_wav24(os.path.join(out_dir, tag + "_bed.wav"), y * k)
             write_wav24(os.path.join(out_dir, tag + "_tonelayer.wav"), t * k)
-        q = qa(mix, carrier)
-        meta = dict(scenario=name, file=tag + ".wav", loop_s=n / FS, fs=FS, bits=24, carrier_hz=carrier,
+        q = qa(mix)
+        meta = dict(scenario=name, file=tag + ".wav", loop_s=n / FS, fs=FS, bits=24, carriers_hz=carriers,
                     swell=sw["params"], profile=profile,
                     tone=(dict(level_db_vs_bed=a.tone_db, swell_db=round(sw["params"]["depth_db"] * a.tone_swell, 2),
                                **report["tone"]) if stems else None),
@@ -248,7 +248,9 @@ def main(argv=None):
     g.add_argument("--tone-chord", default=tone.DEFAULT_CHORD, help="ratios over the root")
     g.add_argument("--tone-swell", type=float, default=0.6, help="tone swell depth as a fraction of the bed's")
     g.add_argument("--stems", action="store_true", help="also write bed and tone stems")
-    ap.add_argument("--carrier", type=float, default=144.0, help="app's binaural carrier (Hz); 0 = none")
+    ap.add_argument("--carrier", type=float, nargs="+", default=[110.0, 220.0, 440.0],
+                    help="every binaural carrier the app may use (Hz): the bed is notched and screened "
+                         "at each, and the tone layer avoids them all; 0 = none")
     ap.add_argument("--seed", type=int, default=1)
     a = ap.parse_args(argv)
 
@@ -257,7 +259,7 @@ def main(argv=None):
             for v in variant_names(k):
                 print(f"{k if v == 'a' else '':15s} [{v}] {prompt_for(k, v)[:95]}...")
         return 0
-    carrier = a.carrier if a.carrier > 0 else None
+    carriers = sorted(c for c in a.carrier if c > 0)
     ok = True
     if a.from_dir:
         paths = sorted(os.path.join(a.from_dir, p) for p in os.listdir(a.from_dir)
@@ -266,7 +268,7 @@ def main(argv=None):
             raise SystemExit(f"no WAV/MP3 files in {a.from_dir}")
         name = a.name or os.path.basename(os.path.normpath(a.from_dir))
         profile = profile_for(a.profile) if a.profile else dict(DEFAULT_PROFILE)
-        ok = run_scenario(name, a, carrier, profile=profile, paths=paths)
+        ok = run_scenario(name, a, carriers, profile=profile, paths=paths)
     else:
         names = list(SCENARIOS) if a.scenarios == ["all"] else a.scenarios
         if not names:
@@ -276,13 +278,13 @@ def main(argv=None):
             ap.error(f"unknown scenario(s) {unknown}; choose from {list(SCENARIOS)}")
         for s in names:
             if a.probe:
-                ok &= probe_scenario(s, a, carrier)
+                ok &= probe_scenario(s, a, carriers)
                 continue
             vs = [v.strip() for v in a.variant.split(",") if v.strip()]
             bad = [v for v in vs if v not in variant_names(s)]
             if bad:
                 ap.error(f"{s} has no variant(s) {bad}; it has {variant_names(s)}")
-            ok &= run_scenario(s, a, carrier, prompts=[prompt_for(s, v) for v in vs], profile=profile_for(s))
+            ok &= run_scenario(s, a, carriers, prompts=[prompt_for(s, v) for v in vs], profile=profile_for(s))
     return 0 if ok else 2
 
 
