@@ -88,8 +88,13 @@ A take whose only problem is its own swell (in loudness or brightness) is not re
 It is conditioned and screened again, and kept if both swells fall below 0.75 dB.
 
 Takes can pass screening and still sound like different places. A bed is joined only from the
-largest set of passing takes whose octave-band balance matches within 5 dB in every octave. The
-others are reported as tonal outliers: one ocean take was pure low rumble, 50 dB short on treble.
+largest set of passing takes whose octave-band balance matches within 10 dB in every **audible**
+octave (one holding more than −30 dB of the take's power). The others are reported as tonal
+outliers: one ocean take was pure low rumble, 50 dB short on treble. A static EQ, at most 6 dB
+per octave, then pulls each kept take toward the group's median balance and level, so the
+crossfades don't change timbre. The first rule (5 dB in all octaves, no EQ) rejected 13 of the 18
+passing train, car and wind takes, mostly over treble 45 dB down. Tonal settings are not part of
+the screening cache key, so tuning them never re-screens.
 `--variant a,b,c` draws on several prompt variants at once, and this matching decides which takes join.
 
 ### Prompting for pass rate
@@ -191,4 +196,7 @@ v0.2.0. Run against the live API on `rain_soft` and `ocean_distant` (model v2). 
 **interleaved stereo** PCM, which the first version decoded as mono, so those takes played at half
 speed, an octave low. Fixed: PCM channels are now inferred from the sample count, and WAV is read
 from its header. The cached takes were repaired in place, and the originals are kept in
-`raw/misdecoded/`. v3 and the prompt variants have not yet been probed live.
+`raw/misdecoded/`.
+
+Built on v3, all seven scenarios: `river` (80 s loop), `ocean_distant`, `rain_soft`, `airplane`,
+`train_smooth`, `car_night` (100 s) and `wind_pines` (120 s).

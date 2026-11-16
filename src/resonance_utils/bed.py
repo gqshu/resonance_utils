@@ -17,7 +17,7 @@ import numpy as np
 from scipy import fft as sfft
 from scipy.signal import resample_poly
 
-from .audio_io import FS, decode_audio, load_any, normalise, write_wav24
+from .audio_io import FS, decode_audio, load_any, normalise, rms, write_wav24
 
 API_BASE_DEFAULT = "https://api.elevenlabs.io"
 FLAT_LINE = "Constant level throughout, no swelling, no surges, no fades, no build-ups."
@@ -42,9 +42,12 @@ THRESH = dict(
     transient_max_per_min=6.0,   # reject if this many MORE events/min than surrogate
     min_rms_dbfs=-60.0,          # reject near-silence
     clip_frac_max=1e-4,          # reject if more samples than this are at full scale
-    tonal_match_db=5.0,          # takes joined into one bed must match within this, every octave
-                                 # (conditioning evens out a few dB per band; bigger gaps sound like
-                                 # a different place, e.g. +8 dB of hiss)
+    tonal_match_db=10.0,         # takes joined into one bed must match within this in every AUDIBLE
+                                 # octave (5 dB in all octaves rejected 13 of 18 passing vehicle/wind
+                                 # takes, mostly over -45 dB treble nobody hears). The gap left is
+                                 # then closed by a static per-take EQ, up to tonal_eq_max_db.
+    tonal_floor_db=-30.0,        # an octave is audible if it holds more than this share of a take's power
+    tonal_eq_max_db=6.0,         # max static per-octave correction toward the group's median balance
 )
 OCTAVE_EDGES_HZ = (63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 XFADE_S = 3.0
@@ -414,11 +417,17 @@ def octave_balance(x):
     return 10 * np.log10(v / v.sum())
 
 
-def tonal_group(balances, tol):
-    """Indices of the largest set of takes whose octave balances all match within tol dB
+def tonal_distance(a, b, floor):
+    """Largest octave-balance gap (dB) between two takes, over octaves either take can be heard in."""
+    audible = (a >= floor) | (b >= floor)
+    return float(np.max(np.abs(a - b)[audible])) if audible.any() else 0.0
+
+
+def tonal_group(balances, tol, floor=-30.0):
+    """Indices of the largest set of takes whose audible octave balances all match within tol dB
     (exhaustive over subsets for small n, greedy beyond), so crossfades never jump in timbre."""
     n = len(balances)
-    fits = lambda i, j: np.max(np.abs(balances[i] - balances[j])) <= tol
+    fits = lambda i, j: tonal_distance(balances[i], balances[j], floor) <= tol
     if n <= 14:
         from itertools import combinations
         for k in range(n, 0, -1):
@@ -428,11 +437,30 @@ def tonal_group(balances, tol):
     best = []
     for seed in range(n):
         g = [seed]
-        for j in sorted(range(n), key=lambda j: np.max(np.abs(balances[j] - balances[seed]))):
+        for j in sorted(range(n), key=lambda j: tonal_distance(balances[j], balances[seed], floor)):
             if j != seed and all(fits(j, i) for i in g):
                 g.append(j)
         best = max(best, g, key=len)
     return sorted(best)
+
+
+def match_tone(clips, balances, max_db):
+    """Static, zero-phase EQ pulling each take's octave balance toward the group median (at most
+    max_db per octave, interpolated smoothly over log frequency), then each take to the median
+    RMS, so the crossfades between takes don't change timbre or level."""
+    e = np.asarray(OCTAVE_EDGES_HZ, float)
+    lc = np.log2(np.sqrt(e[:-1] * e[1:]))
+    target = np.median(balances, axis=0)
+    level = float(np.median([rms(c) for c in clips]))
+    out, applied = [], []
+    for c, b in zip(clips, balances):
+        g = np.clip(target - b, -max_db, max_db)
+        f = sfft.rfftfreq(len(c), 1 / FS)
+        curve = 10 ** (np.interp(np.log2(np.maximum(f, 1.0)), lc, g) / 20)
+        y = sfft.irfft(sfft.rfft(c, axis=0) * curve[:, None], len(c), axis=0)
+        out.append(y * (level / (rms(y) + 1e-12)))
+        applied.append([round(float(v), 1) for v in g])
+    return out, applied
 
 
 SCREEN_VERSION = 3   # bump whenever a measurement changes, so cached verdicts get recomputed
@@ -440,7 +468,8 @@ SCREEN_VERSION = 3   # bump whenever a measurement changes, so cached verdicts g
 
 def _screen_key(carrier, do_condition):
     import hashlib
-    blob = json.dumps(dict(v=SCREEN_VERSION, t=THRESH, c=carrier, d=do_condition, b=CONDITION_BANDS_HZ),
+    t = {k: v for k, v in THRESH.items() if not k.startswith("tonal_")}   # grouping, not screening
+    blob = json.dumps(dict(v=SCREEN_VERSION, t=t, c=carrier, d=do_condition, b=CONDITION_BANDS_HZ),
                       sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:12]
 
@@ -500,14 +529,19 @@ def build_bed(paths, carrier, loop_unit_s, loop_seconds=None, seed=1, min_pass=3
     report = {"takes": takes, "built": False}
     if len(clips) > 1:
         bal = [octave_balance(c) for c in clips]
-        keep = tonal_group(bal, THRESH["tonal_match_db"])
+        keep = tonal_group(bal, THRESH["tonal_match_db"], THRESH["tonal_floor_db"])
         for k in range(len(clips)):
             if k not in keep:
                 r = next(t for t in takes if t["file"] == names[k])
-                worst = max(np.max(np.abs(bal[k] - bal[j])) for j in keep)
+                worst = max(tonal_distance(bal[k], bal[j], THRESH["tonal_floor_db"]) for j in keep)
                 r["verdict"], r["reasons"] = "reject", [f"tonal outlier: {worst:.0f} dB off the other passing takes"]
                 print(f"  REJECT {names[k]:<14s} tonal outlier ({worst:.0f} dB off the matching set)")
         clips, names = [clips[k] for k in keep], [names[k] for k in keep]
+        if len(clips) > 1:
+            clips, eq = match_tone(clips, [bal[k] for k in keep], THRESH["tonal_eq_max_db"])
+            report["tone_match_eq_db"] = dict(zip(names, eq))
+            print(f"  tone-matched {len(clips)} takes (max correction "
+                  f"{max(max(abs(v) for v in g) for g in eq):.1f} dB per octave)")
     if len(clips) < min_pass:
         report["error"] = f"only {len(clips)} takes passed (< {min_pass}); add takes or relax THRESH"
         return None, report
