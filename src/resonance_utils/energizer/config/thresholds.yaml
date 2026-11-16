@@ -1,0 +1,8 @@
+# QA and synthesis constants. Every value is an engineering hypothesis [H] until fixed by
+# listening tests or EEG/behavioural runs (plan §12, M6).
+ENTRY_TEMPO_RATIO: 0.85
+MAX_STRETCH: 1.18
+PAD_MAX_BEAT_HZ: 6.0
+CHORD_CONF_MIN: 0.5
+AI_IN_AM_BAND_GAIN_DB: -6.0
+MB_NOTCH_MIN_DB: 18.0

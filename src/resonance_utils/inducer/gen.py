@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ss_gen: soundscape generator for the power-nap app. This is the single entry point.
+ss gen inducer (alias: ss_gen): nap-inducer soundscapes for the power-nap app.
 
 For each scenario:
   1. BED    ElevenLabs takes (cached in <out>/<scenario>/raw/, never re-bought) -> screen
@@ -14,7 +14,7 @@ For each scenario:
 
 The binaural beat / AM is NOT added here: the app's music driver adds it on its own bus.
 
-Outputs, per scenario, in <out>/<scenario>/:
+Outputs, per scenario, in <out>/inducer/<scenario>/:
   <scenario>_flat.wav                    conditioned flat bed (no swell, no tone)
   <scenario>_<rate>Hz[_tone].wav         one loop per rate, 48 kHz / 24-bit
   <scenario>_<rate>Hz[_tone].json        parameters + QA
@@ -23,13 +23,13 @@ Outputs, per scenario, in <out>/<scenario>/:
   with --stems: ..._bed.wav and ..._tonelayer.wav at the same scale as the mix
 
 Examples
-  ss_gen --list
-  ss_gen train_smooth rain_soft --takes 8 --tone
-  ss_gen all --dry-run                          # show the API calls, spend nothing
-  ss_gen --from-dir my_takes/ --name cabin --profile train_smooth --tone
-  ss_gen all --probe 2 --dry-run                # what a prompt probe would buy, and its cost
-  ss_gen rain_soft --probe 3                    # 3 takes per prompt variant -> pass-rate table
-  ss_gen rain_soft --variant c --tone           # build from a variant that won the probe
+  ss gen inducer --list
+  ss gen inducer train_smooth rain_soft --takes 8 --tone
+  ss gen inducer all --dry-run                          # show the API calls, spend nothing
+  ss gen inducer --from-dir my_takes/ --name cabin --profile train_smooth --tone
+  ss gen inducer all --probe 2 --dry-run                # what a prompt probe would buy, and its cost
+  ss gen inducer rain_soft --probe 3                    # 3 takes per prompt variant -> pass-rate table
+  ss gen inducer rain_soft --variant c --tone           # build from a variant that won the probe
 """
 
 import argparse
@@ -41,11 +41,18 @@ import numpy as np
 
 from . import bed as bedmod
 from . import swell, tone
-from .audio_io import FS, PEAK_CEIL_DBFS, TARGET_RMS_DBFS, rms, write_wav24
-from .audio_io import load_any
+from ..core.audio_io import FS, PEAK_CEIL_DBFS, TARGET_RMS_DBFS, rms, write_wav24
+from ..core.audio_io import load_any
+from ..core.layout import type_dir as _type_dir
+from ..core.slots import DEFAULT_CARRIERS_HZ, clean_carriers
 from .scenarios import DEFAULT_PROFILE, SCENARIOS, profile_for, prompt_for, variant_names
 
+TYPE = "inducer"
 CREDITS_PER_SECOND = 40      # ElevenLabs sound effects with an explicit duration (docs, 2026-11)
+
+
+def type_dir(root):
+    return _type_dir(root, TYPE)
 
 
 def rate_tag(r):
@@ -211,15 +218,15 @@ def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
     return True
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def add_args(ap):
+    """Register the inducer's `gen` arguments on ap (shared by `ss gen inducer` and `ss_gen`)."""
     ap.add_argument("scenarios", nargs="*", help="scenario names, or 'all' (see --list)")
     ap.add_argument("--list", action="store_true", help="list scenarios and exit")
     ap.add_argument("--from-dir", help="use existing WAV/MP3 takes instead of calling the API")
     ap.add_argument("--name", help="output name for --from-dir (default: the folder name)")
     ap.add_argument("--profile", default=None, choices=list(SCENARIOS),
                     help="swell profile for --from-dir (default: a generic one)")
-    ap.add_argument("--out", default="build")
+    ap.add_argument("--out", default="build", help="build root; output goes to <out>/inducer/<scenario>/")
     g = ap.add_argument_group("bed (ElevenLabs)")
     g.add_argument("--takes", type=int, default=8, help="takes per scenario (cached takes count)")
     g.add_argument("--take-seconds", type=float, default=30.0)
@@ -248,18 +255,25 @@ def main(argv=None):
     g.add_argument("--tone-chord", default=tone.DEFAULT_CHORD, help="ratios over the root")
     g.add_argument("--tone-swell", type=float, default=0.6, help="tone swell depth as a fraction of the bed's")
     g.add_argument("--stems", action="store_true", help="also write bed and tone stems")
-    ap.add_argument("--carrier", type=float, nargs="+", default=[110.0, 220.0, 440.0],
+    ap.add_argument("--carrier", type=float, nargs="+", default=list(DEFAULT_CARRIERS_HZ),
                     help="every binaural carrier the app may use (Hz): the bed is notched and screened "
                          "at each, and the tone layer avoids them all; 0 = none")
     ap.add_argument("--seed", type=int, default=1)
-    a = ap.parse_args(argv)
 
+
+def list_scenarios():
+    for k in SCENARIOS:
+        for v in variant_names(k):
+            print(f"{k if v == 'a' else '':15s} [{v}] {prompt_for(k, v)[:95]}...")
+
+
+def run(a, ap):
+    """Run a parsed `gen` command. a.out is the build root; this type writes to <out>/inducer/."""
+    a.out = type_dir(a.out)
     if a.list:
-        for k in SCENARIOS:
-            for v in variant_names(k):
-                print(f"{k if v == 'a' else '':15s} [{v}] {prompt_for(k, v)[:95]}...")
+        list_scenarios()
         return 0
-    carriers = sorted(c for c in a.carrier if c > 0)
+    carriers = clean_carriers(a.carrier)
     ok = True
     if a.from_dir:
         paths = sorted(os.path.join(a.from_dir, p) for p in os.listdir(a.from_dir)
@@ -286,6 +300,14 @@ def main(argv=None):
                 ap.error(f"{s} has no variant(s) {bad}; it has {variant_names(s)}")
             ok &= run_scenario(s, a, carriers, prompts=[prompt_for(s, v) for v in vs], profile=profile_for(s))
     return 0 if ok else 2
+
+
+def main(argv=None):
+    """Legacy `ss_gen` entry point: same as `ss gen inducer`."""
+    ap = argparse.ArgumentParser(prog="ss_gen", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    add_args(ap)
+    return run(ap.parse_args(argv), ap)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,34 @@
 # resonance_utils
 
-Soundscape generator for an EEG-adaptive power-nap app. One command, `ss_gen`, turns a scenario
-(train, rain, river, ...) into seamless loops with a slow, sedative swell baked in, optionally with
-an ambient tone layer. The **binaural beat / AM is not added here**: the app's music driver adds it
-on its own bus.
+Soundscape generators for the resonance EEG-adaptive app. One command, `ss`, drives every
+**soundscape type**. Types share audio I/O, analysis, loop assembly, the carrier set, the
+ElevenLabs client and the deploy framework (`core/`), but each has its own pipeline for
+generating, QA and deployment.
+
+| Type | What | Status |
+|---|---|---|
+| `inducer` | power-nap inducer: seamless texture loops with a baked 0.1–0.25 Hz swell, optional tone layer | in production |
+| `energizer` | wake-to-work ramp: hybrid ElevenLabs + procedural beds with lever-ready stems ([plan](docs/ENERGIZER_SOUNDSCAPE_GENERATOR_PLAN.md)) | skeleton |
+
+```bash
+ss list                       # the types
+ss list inducer               # what a type can generate
+ss gen <type> ... -h          # build into build/<type>/<id>/
+ss deploy <type>|all          # ready builds -> deploy/<type>/manifest.json + deploy/index.json
+ss migrate [--dry-run]        # move a pre-0.3 build/ and deploy/ into the per-type layout
+```
+
+**Carriers.** The inducer is built against the shared carrier set in `core/slots.py` (default 110,
+220 and 440 Hz, `--carrier` to change it). The energizer uses one fixed monaural carrier, 220 Hz,
+with beats at 20 and 40 Hz (`energizer/config/lever_slots.yaml`). Only the three tones, 220, 240 and
+260 Hz, are kept clear (±20 Hz, so 200–280 Hz), not the whole beat range. That leaves the bass
+(below 180 Hz) and most of the AM band (280–1000 Hz) free. No energizer partial may also beat
+against a lever tone at 12–20 or 38–42 Hz, so 180 Hz and 300 Hz are out too
+(`energizer.config.partial_clash`). 220 Hz is in both sets, so the app can use it with every pack.
+AM needs no slot.
+
+The rest of this README covers the **inducer**. The binaural beat / AM is **not added here**: the
+app's music driver adds it on its own bus.
 
 ```
  scenario prompt ──► ElevenLabs takes ──► screen ──► join ──► condition ──► <scenario>_flat.wav
@@ -19,7 +44,9 @@ on its own bus.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e .            # numpy + scipy
+pip install -e .                 # numpy + scipy: everything the inducer needs
+pip install -e '.[energizer]'    # + librosa, rubberband, soxr, ... for the energizer
+pip install -e '.[dev]'          # + pytest; run `pytest` (no test calls the real API)
 ```
 
 Requires Python ≥ 3.9. `ffmpeg` is needed only if the API returns MP3 (its fallback when PCM output
@@ -29,25 +56,27 @@ isn't available on your plan).
 
 ```bash
 export ELEVENLABS_API_KEY=sk_...
-ss_gen --list                                   # scenarios and their prompts
-ss_gen train_smooth rain_soft --takes 8 --tone  # two scenarios, with the tone layer
-ss_gen all --dry-run                            # show the API calls, spend nothing
-ss_gen river --tone --stems                     # also write bed and tone stems
-ss_gen --from-dir my_takes/ --name cabin --profile train_smooth   # your own takes, no API
-ss_gen all --probe 2 --dry-run                  # cost of testing every prompt variant
-ss_gen rain_soft --probe 3                      # 3 takes per variant -> pass-rate table
-ss_gen rain_soft --variant c --tone             # build from the variant that won
+ss gen inducer --list                           # scenarios and their prompts
+ss gen inducer train_smooth rain_soft --takes 8 --tone  # two scenarios, with the tone layer
+ss gen inducer all --dry-run                    # show the API calls, spend nothing
+ss gen inducer river --tone --stems             # also write bed and tone stems
+ss gen inducer --from-dir my_takes/ --name cabin --profile train_smooth   # your own takes, no API
+ss gen inducer all --probe 2 --dry-run          # cost of testing every prompt variant
+ss gen inducer rain_soft --probe 3              # 3 takes per variant -> pass-rate table
+ss gen inducer rain_soft --variant c --tone     # build from the variant that won
 ```
+
+`ss_gen` still works as an alias for `ss gen inducer`, with the same options.
 
 The default model is `eleven_text_to_sound_v3` (v2 is deprecated and will be removed on 2027-03-01).
 Each 30 s take costs about 1,200 credits.
 
-**Takes are cached.** They are saved in `<out>/<scenario>/raw/` and reused on every later run, so
+**Takes are cached.** They are saved in `<out>/inducer/<scenario>/raw/` and reused on every later run, so
 re-running to tune the swell or tone costs nothing. Raising `--takes` buys only the missing ones.
 A take is reused only if its sidecar records the same prompt and model, so editing a prompt or
 switching models never silently reuses old takes. Delete `raw/` to start a scenario over.
 
-Outputs per scenario, in `<out>/<scenario>/` (default `build/`):
+Outputs per scenario, in `<out>/inducer/<scenario>/` (default `build/`):
 
 | File | What |
 |---|---|
@@ -61,19 +90,21 @@ Outputs per scenario, in `<out>/<scenario>/` (default `build/`):
 ## Deploy to the app
 
 ```bash
-ss_deploy                                   # every ready scenario: build/ -> deploy/
-ss_deploy car_night rain_soft --stems       # only these, with bed + tone stems
-ss_deploy --clean --out ../app/assets/soundscapes
+ss deploy inducer                           # every ready scenario: build/inducer/ -> deploy/inducer/
+ss deploy inducer car_night rain_soft --stems   # only these, with bed + tone stems
+ss deploy inducer --clean --out ../app/assets/soundscapes
 ```
 
-`ss_deploy` copies every **ready** scenario into one directory, with a single `manifest.json`
+`ss_deploy` is an alias for `ss deploy inducer`. It copies every **ready** scenario into one directory, with a single `manifest.json`
 for the resonance app. A scenario is ready when its last build succeeded, every listed output and
 its JSON and envelope exist, every output's QA says the EEG band is clean, and all outputs agree
 on loop length and carriers. Anything else is skipped with the reason, and `build/` is never
 modified. Re-deploying a subset keeps the other scenarios already in the manifest. `--clean`
-empties `--out` first, but only if that directory already holds an ss_deploy manifest.
+empties `<out>/inducer/` first, but only if that directory already holds a manifest. Every deploy
+also rewrites `<out>/index.json`, which lists the packs (types) present and their manifests.
 
-`manifest.json` (schema 1) contains:
+`inducer/manifest.json` (schema 1, unchanged by the move to per-type folders: paths are relative
+to `inducer/`) contains:
 
 - the shared audio format (WAV, 48 kHz, 24-bit, stereo, −26 dBFS RMS, seamless) and the
   `carriers_hz`, every binaural carrier the soundscapes are safe with (the app picks one);
@@ -87,7 +118,7 @@ empties `--out` first, but only if that directory already holds an ss_deploy man
 Every file entry has a relative `path`, `bytes` and `sha256`. The full set of 7 scenarios is about
 0.8 GB, or about 2 GB with stems.
 
-## The three stages
+## Inducer: the three stages
 
 ### 1. Bed (`bed.py`)
 
@@ -217,16 +248,27 @@ latency, N3 creep and post-nap alertness. Make no entrainment claims from these 
 
 ```
 src/resonance_utils/
-├── ss_gen.py      # the CLI: bed -> swell -> tone, outputs + QA
-├── ss_deploy.py   # ready scenarios -> one app directory + manifest.json
-├── bed.py         # ElevenLabs generation (cached), screening, loop join, conditioning
-├── swell.py       # offline loop-exact swell
-├── tone.py        # ambient tone layer
-├── scenarios.py   # prompts + per-texture swell profiles
-├── audio_io.py    # WAV I/O, normalisation
-└── legacy/        # earlier tools, kept for reference: real-time EEG SwellEngine
-                   # (swell_engine.py), ocean_gen.py, elevenlabs_bed_builder.py
+├── cli.py            # `ss`: list | gen | deploy | migrate, dispatching to the type registry
+├── core/             # shared by every type
+│   ├── types.py      # SoundscapeType contract + lazy registry
+│   ├── audio_io.py   # WAV I/O, decoding API audio, normalisation
+│   ├── analysis.py   # block envelopes, band stats, surrogates, octave balance
+│   ├── loop.py       # equal-power crossfades, exact-length seamless loops
+│   ├── slots.py      # shared carriers + guards, carrier notch
+│   ├── elevenlabs.py # API client: auth, retry, PCM fallback signal, usage log (cache/el/usage.jsonl)
+│   ├── cache.py      # content-addressed request cache (energizer)
+│   ├── layout.py     # build/<type>/, deploy/<type>/
+│   └── deploy.py     # hashed file entries, guarded --clean, manifest merge, deploy/index.json
+├── inducer/          # gen.py (ss_gen), deploy.py (ss_deploy), bed.py, swell.py, tone.py, scenarios.py
+├── energizer/        # config.py (params, bed_id), type.py, config/*.yaml; pipeline per the plan
+└── legacy/           # earlier tools, kept for reference: real-time EEG SwellEngine
+                      # (swell_engine.py), ocean_gen.py, elevenlabs_bed_builder.py
+tests/                # golden inducer build (bit-identical outputs), CLI, core client/cache
 ```
+
+Adding a type: create `resonance_utils/<type>/type.py` with a `SoundscapeType` subclass and add it
+to `core/types.REGISTRY`. Its builds go to `build/<type>/<id>/` and its deploy writes
+`deploy/<type>/manifest.json`.
 
 ## Status
 

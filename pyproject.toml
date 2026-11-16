@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "resonance_utils"
-version = "0.2.0"
-description = "Soundscape generator for an EEG-adaptive power-nap app: ElevenLabs beds, baked slow swells and a sedative ambient tone layer, behind one ss_gen command."
+version = "0.3.0"
+description = "Soundscape generators for the resonance EEG-adaptive app (inducer, energizer), behind one ss command."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "George" }]
@@ -24,14 +24,30 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.7"]
+energizer = [
+    "soundfile>=0.12",
+    "soxr>=0.3",
+    "pyloudnorm>=0.1",
+    "librosa>=0.10",
+    "pyrubberband>=0.3",
+    "PyYAML>=6",
+]
 dev = ["pytest>=7", "ruff>=0.4"]
 
 [project.scripts]
-ss_gen = "resonance_utils.ss_gen:main"
-ss_deploy = "resonance_utils.ss_deploy:main"
+ss = "resonance_utils.cli:main"
+ss_gen = "resonance_utils.inducer.gen:main"           # alias: ss gen inducer
+ss_deploy = "resonance_utils.inducer.deploy:main"     # alias: ss deploy inducer
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+resonance_utils = ["energizer/config/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: calls the real ElevenLabs API (opt-in: --live and ELEVENLABS_API_KEY)"]
 
 [tool.ruff]
 line-length = 110

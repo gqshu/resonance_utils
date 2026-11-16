@@ -1,19 +1,38 @@
-"""resonance_utils: soundscape generation for an EEG-adaptive power-nap app.
+"""resonance_utils: soundscape generation for the resonance EEG-adaptive app.
 
-Entry point: ss_gen (bed -> swell -> optional tone). Modules:
-    bed        ElevenLabs takes -> screen -> seamless loop -> condition
-    swell      offline, loop-exact swell at 0.1 / 0.2 / 0.25 Hz
-    tone       sedative ambient tone layer that breathes with the swell
-    scenarios  prompts + per-texture swell profiles
-    audio_io   WAV I/O and normalisation
+One command, `ss`, drives every soundscape type:
+
+    ss list [type]                 types, or what a type can generate
+    ss gen <type> ...              build into build/<type>/<id>/
+    ss deploy [<type>|all] ...     collect ready builds into deploy/<type>/ + deploy/index.json
+    ss migrate                     move a pre-0.3 build/ and deploy/ into the per-type layout
+
+Types (core/types.py registry):
+    inducer    power-nap inducer: texture loops with a baked slow swell (ss_gen / ss_deploy aliases)
+    energizer  wake-to-work energizer beds (in development; see docs/)
+
+Packages:
+    core       audio I/O, analysis, loops, carrier slots, ElevenLabs client, cache, deploy helpers
+    inducer    the inducer pipeline (bed, swell, tone, scenarios)
+    energizer  the energizer pipeline
     legacy     the earlier tools (real-time EEG SwellEngine, ocean_gen, bed-builder)
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
-from .bed import build_bed, generate_takes, screen  # noqa: F401
-from .swell import apply_swell  # noqa: F401
-from .tone import mix_tone, render_tone_stems  # noqa: F401
+
+def __getattr__(name):                     # lazy re-exports of the pre-0.3 top-level API
+    if name in ("build_bed", "generate_takes", "screen"):
+        from .inducer import bed
+        return getattr(bed, name)
+    if name == "apply_swell":
+        from .inducer.swell import apply_swell
+        return apply_swell
+    if name in ("mix_tone", "render_tone_stems"):
+        from .inducer import tone
+        return getattr(tone, name)
+    raise AttributeError(name)
+
 
 __all__ = ["build_bed", "generate_takes", "screen", "apply_swell", "render_tone_stems", "mix_tone",
            "__version__"]

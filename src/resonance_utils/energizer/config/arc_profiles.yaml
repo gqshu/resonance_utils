@@ -1,0 +1,7 @@
+# Phase boundaries in seconds; other lengths scale proportionally (plan §3).
+wake_to_work_4m:
+  length_s: 240
+  phases: { entry: [0, 30], ramp: [30, 150], plateau: [150, 220], handoff: [220, 240] }
+  entries: { music: 30, pulse: 45, bass: 60 }
+wake_to_work_2m30: { scale_from: wake_to_work_4m, length_s: 150 }
+wake_to_work_5m:   { scale_from: wake_to_work_4m, length_s: 300 }

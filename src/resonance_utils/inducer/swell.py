@@ -18,7 +18,7 @@ from math import gcd
 import numpy as np
 from scipy import fft as sfft
 
-from .audio_io import FS
+from ..core.audio_io import FS
 
 # Per-rate defaults. Slower = deeper and darker (paces breathing at 6/min);
 # faster (0.25 Hz, the rocking rate) = shallower with more sway.

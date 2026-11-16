@@ -1,0 +1,6 @@
+# music_style presets -> prompt template fragments for the Eleven Music composition plan (plan §5.2).
+ambient_electronic_keys:   { style: "ambient electronic, soft electric piano and synth keys" }
+warm_lofi_keys_no_beat:    { style: "warm lo-fi keys, no beat" }
+minimal_marimba_pulse:     { style: "minimal marimba pulse" }
+soft_post_rock_guitars:    { style: "soft post-rock clean guitars" }
+bright_piano_minimalism:   { style: "bright piano minimalism" }

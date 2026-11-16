@@ -9,17 +9,17 @@ import glob
 import json
 import os
 import re
-import time
-import urllib.error
-import urllib.request
 
 import numpy as np
 from scipy import fft as sfft
-from scipy.signal import resample_poly
 
-from .audio_io import FS, decode_audio, load_any, normalise, rms, write_wav24
+from ..core import elevenlabs as el
+from ..core.analysis import (ENV_RATE, OCTAVE_EDGES_HZ, band_std, circ_conv_env, env_db,  # noqa: F401
+                             env_frames, frames_to_samples, octave_balance, power_frames, surrogate)
+from ..core.audio_io import FS, decode_audio, load_any, normalise, rms, write_wav24
+from ..core.loop import chain, close_loop, loopable_samples  # noqa: F401
+from ..core.slots import notch, notch_gain  # noqa: F401
 
-API_BASE_DEFAULT = "https://api.elevenlabs.io"
 FLAT_LINE = "Constant level throughout, no swelling, no surges, no fades, no build-ups."
 
 # --- screening thresholds (empirical-first; tune with your own data) -------
@@ -49,7 +49,6 @@ THRESH = dict(
     tonal_floor_db=-30.0,        # an octave is audible if it holds more than this share of a take's power
     tonal_eq_max_db=6.0,         # max static per-octave correction toward the group's median balance
 )
-OCTAVE_EDGES_HZ = (63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 XFADE_S = 3.0
 
 
@@ -57,30 +56,8 @@ XFADE_S = 3.0
 # Generate (with a take cache: existing raw takes are reused, never re-bought)
 # ===========================================================================
 def api_generate(text, duration, influence, model, output_format, api_key, base):
-    url = f"{base.rstrip('/')}/v1/sound-generation?output_format={output_format}"
-    body = {"text": text, "duration_seconds": duration, "prompt_influence": influence,
-            "loop": True, "model_id": model}
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
-                                 headers={"xi-api-key": api_key, "Content-Type": "application/json",
-                                          "Accept": "audio/*"})
-    delay = 4.0
-    for _ in range(6):
-        try:
-            with urllib.request.urlopen(req, timeout=180) as r:
-                return r.read()
-        except urllib.error.HTTPError as e:
-            msg = e.read().decode(errors="replace")[:300]
-            if e.code == 429 or e.code >= 500:
-                print(f"    HTTP {e.code}, retrying in {delay:.0f}s ...")
-                time.sleep(delay)
-                delay *= 2
-                continue
-            raise RuntimeError(f"HTTP {e.code}: {msg}") from None
-        except urllib.error.URLError as e:
-            print(f"    network error {e.reason}, retrying in {delay:.0f}s ...")
-            time.sleep(delay)
-            delay *= 2
-    raise RuntimeError("API failed after retries")
+    return el.sound_generation(text, duration, influence, model, output_format, loop=True,
+                               key=api_key, base=base)
 
 
 def cached_takes(raw_dir, prompt=None, model=None):
@@ -114,10 +91,8 @@ def generate_takes(prompt, raw_dir, n_takes, duration=30.0, influence=0.65,
               + (f" ({other} made from a different prompt or model, ignored)" if other else ""))
     if not missing:
         return have
-    api_key = os.environ.get("ELEVENLABS_API_KEY", "")
-    base = os.environ.get("ELEVENLABS_API_BASE", API_BASE_DEFAULT)
-    if not api_key and not dry_run:
-        raise SystemExit("ELEVENLABS_API_KEY is not set (or use --from-dir / --dry-run)")
+    api_key = el.api_key(required=not dry_run)
+    base = el.api_base()
     nums = [int(m.group(1)) for p in cached_takes(raw_dir) if (m := re.search(r"take_(\d+)\.wav$", p))]
     first = max(nums, default=0) + 1
     fmt = output_format
@@ -131,7 +106,7 @@ def generate_takes(prompt, raw_dir, n_takes, duration=30.0, influence=0.65,
         try:
             blob = api_generate(prompt, duration, infl, model, fmt, api_key, base)
         except RuntimeError as e:
-            if fmt.startswith("pcm_") and str(e)[:9] in ("HTTP 400:", "HTTP 402:", "HTTP 403:", "HTTP 422:"):
+            if fmt.startswith("pcm_") and el.pcm_unavailable(e):
                 print(f"    PCM not available ({e}); falling back to mp3_44100_192")
                 fmt = "mp3_44100_192"
                 blob = api_generate(prompt, duration, infl, model, fmt, api_key, base)
@@ -148,59 +123,6 @@ def generate_takes(prompt, raw_dir, n_takes, duration=30.0, influence=0.65,
 # ===========================================================================
 # Screen
 # ===========================================================================
-ENV_RATE = 1000                                       # envelope frames/s: 1 ms power blocks
-_BLK = FS // ENV_RATE
-
-
-def power_frames(x):
-    """Mean power per 1 ms block. Every envelope window here is >= 10 ms, so working on
-    blocks instead of samples changes nothing measurable and is ~50x cheaper."""
-    p = (x ** 2).mean(1) if x.ndim == 2 else x ** 2
-    n = len(p) // _BLK * _BLK
-    out = p[:n].reshape(-1, _BLK).mean(1)
-    return np.append(out, p[n:].mean()) if n < len(p) else out
-
-
-def frames_to_samples(g, n):
-    """Upsample a smooth per-block curve to n samples (circular linear interpolation)."""
-    return np.interp(np.arange(n), (np.arange(len(g)) + 0.5) * _BLK, g, period=n)
-
-
-def env_db(x, win_s):
-    """Centred moving-RMS envelope in dB, at ENV_RATE frames/s."""
-    p = power_frames(x)
-    k = max(1, int(round(win_s * ENV_RATE)))
-    c = np.concatenate([[0.0], np.cumsum(p)])          # O(N) centred moving average
-    lo = np.clip(np.arange(len(p)) - k // 2, 0, len(p))
-    hi = np.clip(lo + k, 0, len(p))
-    e = np.sqrt(np.maximum((c[hi] - c[lo]) / np.maximum(hi - lo, 1), 0)) + 1e-9
-    return 20 * np.log10(e)
-
-
-def band_std(sig, fs, lo, hi):
-    """Std of a (dB) envelope after FFT band-pass."""
-    s = sig - sig.mean()
-    S = sfft.rfft(s * np.hanning(len(s)))
-    f = sfft.rfftfreq(len(s), 1 / fs)
-    S[(f < lo) | (f > hi)] = 0
-    return float(np.std(sfft.irfft(S, len(s))) * np.sqrt(8 / 3))
-
-
-def surrogate(m, seed=0):
-    """Phase-randomised copy: same power spectrum, perfectly stationary. Its envelope
-    statistics are the noise floor a clean bed should match, so every check is relative."""
-    S = sfft.rfft(m)
-    ph = np.exp(2j * np.pi * np.random.default_rng(seed).uniform(0, 1, len(S)))
-    ph[0] = 1
-    return sfft.irfft(np.abs(S) * ph, len(m))
-
-
-def env_frames(m, win_s):
-    """dB envelope at 100 frames/s, low-passed before decimating: plain slicing would fold
-    beats between tonal partials (e.g. 110 Hz) onto false 1-12 Hz 'rhythm' (110 -> 10 Hz)."""
-    return resample_poly(env_db(m, win_s), 1, ENV_RATE // 100)
-
-
 def mod_measures(m):
     T = THRESH
     e = env_frames(m, 0.025)                           # 25 ms RMS, 100 frames/s
@@ -311,42 +233,6 @@ def with_hum(r, hum):
 # ===========================================================================
 # Join / condition
 # ===========================================================================
-def _fades(xf):
-    w = np.linspace(0, np.pi / 2, xf)[:, None]
-    return np.sin(w), np.cos(w)
-
-
-def chain(clips, order, xf):
-    """Concatenate clips in order with equal-power crossfades of xf samples."""
-    fin, fout = _fades(xf)
-    out = clips[order[0]].copy()
-    for k in order[1:]:
-        c = clips[k]
-        out[-xf:] = out[-xf:] * fout + c[:xf] * fin
-        out = np.concatenate([out, c[xf:]], 0)
-    return out
-
-
-def loopable_samples(clips, xf):
-    """Longest seamless loop the clips can make (one extra crossfade closes the loop)."""
-    return sum(len(c) for c in clips) - len(clips) * xf
-
-
-def close_loop(x, n_out, xf):
-    """Cut x to exactly n_out samples, blending x[n_out:n_out+xf] into the head -> seamless."""
-    if n_out + xf > len(x):
-        raise ValueError("not enough material for the requested loop length")
-    fin, fout = _fades(xf)
-    body = x[:n_out].copy()
-    body[:xf] = x[:xf] * fin + x[n_out:n_out + xf] * fout
-    return body
-
-
-def circ_conv_env(p, k):
-    kern = np.zeros(len(p))
-    kern[:k] = 1.0 / k
-    kern = np.roll(kern, -k // 2)
-    return sfft.irfft(sfft.rfft(p) * sfft.rfft(kern), len(p))
 
 
 CONDITION_BANDS_HZ = (150.0, 400.0, 1000.0, 2500.0, 6000.0)   # crossovers -> 6 bands
@@ -376,22 +262,6 @@ def condition(x, crest_db=6.0, bands=CONDITION_BANDS_HZ):
     fast = np.sqrt(np.maximum(circ_conv_env(p, ENV_RATE // 50), 0)) + 1e-6
     lim = circ_conv_env(np.minimum(1.0, slow * 10 ** (crest_db / 20) / fast), ENV_RATE // 100)
     return y * frames_to_samples(lim, n)[:, None]
-
-
-def notch_gain(f, carrier, depth_db=6.0, bw_oct=1 / 3):
-    z = np.log2(np.maximum(f, 1.0) / carrier) / (bw_oct / 2)
-    return 10 ** ((-depth_db * np.exp(-0.5 * (z * 1.18) ** 2)) / 20)
-
-
-def notch(x, carriers, depth_db=6.0):
-    """Static circular -6 dB 1/3-octave dip at each binaural carrier the app may use, so its
-    tones sit clear whichever one it picks."""
-    carriers = [c for c in (carriers or []) if c]
-    if not carriers:
-        return x
-    f = sfft.rfftfreq(len(x), 1 / FS)
-    g = np.prod([notch_gain(f, c, depth_db) for c in carriers], axis=0)
-    return sfft.irfft(sfft.rfft(x, axis=0) * g[:, None], len(x), axis=0)
 
 
 def screen_take(x, do_condition=True):
@@ -429,16 +299,6 @@ def screen_take(x, do_condition=True):
             r["reasons"] = [desc + f" (limit {T['swell_after_max_db']:g})"]
     r["verdict"] = "reject" if r["reasons"] else "pass"
     return r
-
-
-def octave_balance(x):
-    """Long-term tonal balance: each octave band's share of the total power, in dB."""
-    m = x.mean(1)
-    f = sfft.rfftfreq(len(m), 1 / FS)
-    P = np.abs(sfft.rfft(m)) ** 2
-    e = OCTAVE_EDGES_HZ
-    v = np.array([P[(f >= lo) & (f < hi)].sum() for lo, hi in zip(e[:-1], e[1:])]) + 1e-30
-    return 10 * np.log10(v / v.sum())
 
 
 def tonal_distance(a, b, floor):

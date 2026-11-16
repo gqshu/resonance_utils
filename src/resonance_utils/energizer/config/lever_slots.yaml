@@ -1,0 +1,16 @@
+# Lever slots: copy of what the music engine owns. Never edited by this package except to
+# sync with the engine.
+#
+# AM needs no slot: the engine modulates the `pad` stem only, inside am_band.
+am_band:      { lo_hz: 200, hi_hz: 1000 }
+
+# Monaural beats: one fixed carrier, two beat rates. The engine plays the carrier and
+# carrier + beat (220 Hz with 240 Hz or 260 Hz). 220 Hz is also one of the shared carriers
+# (core.slots.DEFAULT_CARRIERS_HZ), so the app can run 220 Hz against every pack.
+# Only the tones themselves are kept clear (+/- guard_hz), not the whole 0-40 Hz beat range:
+# with guard 20 that's 200-280 Hz, below the pad's working range and above the bass.
+mb_slot:      { carrier_hz: 220, beats_hz: [20, 40], guard_hz: 20 }
+
+# Envelope-modulation bands the engine drives; no bed partial may beat against a lever tone
+# at a spacing inside these.
+native_mod_bands_hz: [[12, 20], [38, 42]]

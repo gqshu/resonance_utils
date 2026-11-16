@@ -19,7 +19,8 @@ from fractions import Fraction
 
 import numpy as np
 
-from .audio_io import FS
+from ..core.audio_io import FS
+from ..core.slots import BEAT_GUARD_HZ, CARRIER_GUARD_HZ  # noqa: F401  (shared guards)
 
 DEFAULT_ROOT_HZ = 88.0                 # ~F2. With the default chord every partial is >= 22 Hz from
                                        # carriers 110, 220 and 440 Hz (A roots sit right on them)
@@ -27,8 +28,6 @@ DEFAULT_CHORD = "1,3/2,2,3,4"          # root, fifth, octave, twelfth, double oc
 HARMONICS = 4
 F_MAX_HZ = 1200.0
 DETUNE_HZ = 0.06                       # copy spacing; outer copies beat at ~0.12 Hz
-CARRIER_GUARD_HZ = 20.0
-BEAT_GUARD_HZ = (0.5, 20.0)           # forbidden partial spacing (beats as AM)
 MERGE_HZ = 0.5
 DRIFT_DEPTH = 0.2                      # each voice's level drifts +/-20 % over 1-3 cycles per loop
 
