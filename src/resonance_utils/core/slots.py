@@ -38,3 +38,19 @@ def notch(x, carriers, depth_db=6.0):
     f = sfft.rfftfreq(len(x), 1 / FS)
     g = np.prod([notch_gain(f, c, depth_db) for c in carriers], axis=0)
     return sfft.irfft(sfft.rfft(x, axis=0) * g[:, None], len(x), axis=0)
+
+
+def band_stop(x, ranges, depth_db=30.0, edge_hz=8.0):
+    """Zero-phase static band-stop (whole-signal FFT): at least depth_db down inside every
+    [lo, hi] range, with raised-cosine shoulders edge_hz wide just outside it."""
+    if not ranges:
+        return x
+    f = sfft.rfftfreq(len(x), 1 / FS)
+    g = np.ones_like(f)
+    floor = 10 ** (-depth_db / 20)
+    for lo, hi in ranges:
+        d = np.maximum(lo - f, f - hi)                 # <= 0 inside the range
+        w = np.where(d <= 0, 1.0, np.where(d < edge_hz, 0.5 * (1 + np.cos(np.pi * d / edge_hz)), 0.0))
+        g *= 1 - w * (1 - floor)
+    X = sfft.rfft(x, axis=0)
+    return sfft.irfft(X * (g[:, None] if x.ndim == 2 else g), len(x), axis=0)

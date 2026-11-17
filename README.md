@@ -8,7 +8,7 @@ generating, QA and deployment.
 | Type | What | Status |
 |---|---|---|
 | `inducer` | power-nap inducer: seamless texture loops with a baked 0.1–0.25 Hz swell, optional tone layer | in production |
-| `energizer` | wake-to-work ramp: hybrid ElevenLabs + procedural beds with lever-ready stems ([plan](docs/ENERGIZER_SOUNDSCAPE_GENERATOR_PLAN.md)) | skeleton |
+| `energizer` | wake-to-work ramp: hybrid ElevenLabs + procedural beds with lever-ready stems ([plan](docs/ENERGIZER_SOUNDSCAPE_GENERATOR_PLAN.md)) | M1: all-procedural render; no API layer or deploy yet |
 
 ```bash
 ss list                       # the types
@@ -26,6 +26,38 @@ with beats at 20 and 40 Hz (`energizer/config/lever_slots.yaml`). Only the three
 against a lever tone at 12–20 or 38–42 Hz, so 180 Hz and 300 Hz are out too
 (`energizer.config.partial_clash`). 220 Hz is in both sets, so the app can use it with every pack.
 AM needs no slot.
+
+### Energizer (M1)
+
+```bash
+ss list energizer                                  # params, arc profiles, music styles
+ss gen energizer --seed 2 --key-root E --mode mixolydian --pulse-style broken_soft --plateau-bpm 114
+ss gen energizer --length-s 30 --dry-run           # params, lever slots and bed_id only
+```
+
+Each bed goes to `build/energizer/<bed_id>/`: `stems/{pad,bass,pulse,texture}.wav` (48 kHz,
+24-bit, equal length, arc baked in), `preview_mix.wav`, `tempo_map.json`, `arc.json`,
+`chords.json`, `pad_partials.json` (every partial kept or dropped, and why), `qa_report.json` and
+`manifest.json`. A 4-minute bed renders in about a minute and is bit-identical on re-render.
+Before the plateau the pad has 3 voices, from the plateau 4. It's voiced at 292–760 Hz, above
+the monaural slot. Partials that would beat with the next chord's inside a native-mod band hand
+over in sequence instead of crossfading. The QA is provisional (M1); the full gate is M3.
+
+**Hybrid (M2).** `ss gen energizer --music-source elevenlabs` composes the main track and the
+motif with Eleven Music (`music_v2_5`), separates the main track into six stems, keeps everything
+but the drums, bass and vocals as `music`, and conforms it:
+- analysis: beat grid tracked on the AI drum stem, refined to 1 ms attacks; downbeat taken from
+  the bass changes; key check; chords per bar with the bass giving the root;
+- surplus ramp bars dropped whole;
+- a two-pass Rubber Band time-map, calibrated on the drum stem stretched alongside the music;
+- notch and AM-band gain.
+
+The AI chords then drive the pad and bass. `--reference-only` writes only `reference_mix.wav`
+(the unseparated AI track with the arc gain applied). A hybrid bed folder holds both, plus
+`ai_analysis.json` and `ai_stems/`. All calls are cached in `cache/el/` and logged in
+`cache/el/usage.jsonl`. One bed costs about 3,800 credits plus the separation, and nothing on a
+re-render. It needs `pip install soundfile soxr pylibrb` (Rubber Band is GPL: fine offline, never
+in the app).
 
 The rest of this README covers the **inducer**. The binaural beat / AM is **not added here**: the
 app's music driver adds it on its own bus.

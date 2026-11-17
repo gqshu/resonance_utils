@@ -81,7 +81,13 @@ def decode_audio(blob, output_format, seed=0, duration=None):
         x = v[: len(v) // ch * ch].reshape(-1, ch)
         return to_stereo(resample(x, sr), seed)
     if not shutil.which("ffmpeg"):
-        raise RuntimeError("compressed audio needs ffmpeg, which is not installed")
+        try:                                           # libsndfile >= 1.1 decodes MP3 too
+            import io
+            import soundfile as sf
+            x, sr = sf.read(io.BytesIO(blob), dtype="float64", always_2d=True)
+            return to_stereo(resample(x, sr), seed)
+        except ImportError:
+            raise RuntimeError("compressed audio needs ffmpeg or the soundfile package") from None
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         f.write(blob)
         src = f.name

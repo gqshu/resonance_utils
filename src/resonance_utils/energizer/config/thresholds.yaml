@@ -6,3 +6,4 @@ PAD_MAX_BEAT_HZ: 6.0
 CHORD_CONF_MIN: 0.5
 AI_IN_AM_BAND_GAIN_DB: -6.0
 MB_NOTCH_MIN_DB: 18.0
+PAD_NATIVE_MOD_MAX_DB: -40.0   # pad envelope modulation in 12-20 / 38-42 Hz, dB re 100 % AM

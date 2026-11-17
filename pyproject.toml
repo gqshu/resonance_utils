@@ -24,12 +24,10 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.7"]
-energizer = [
-    "soundfile>=0.12",
+energizer = [            # analysis is numpy/scipy (librosa's llvmlite has no Intel-Mac wheel for py3.13)
+    "soundfile>=0.12",      # also decodes MP3 API responses when ffmpeg is absent
     "soxr>=0.3",
-    "pyloudnorm>=0.1",
-    "librosa>=0.10",
-    "pyrubberband>=0.3",
+    "pylibrb>=0.1.2",       # Rubber Band (GPL): offline time-map stretch only, never shipped
     "PyYAML>=6",
 ]
 dev = ["pytest>=7", "ruff>=0.4"]

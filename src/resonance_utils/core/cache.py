@@ -9,8 +9,10 @@ from .elevenlabs import request_hash
 CACHE_ROOT_DEFAULT = os.path.join("cache", "el")
 
 
-def cached_call(endpoint, body, query, fetch, root=CACHE_ROOT_DEFAULT, no_cache=False, suffix=".bin"):
-    """Return (bytes, path, hit). fetch() makes the real call on a miss (or with no_cache)."""
+def cached_call(endpoint, body, query, fetch, root=None, no_cache=False, suffix=".bin"):
+    """Return (bytes, path, hit). fetch() makes the real call on a miss (or with no_cache).
+    root defaults to ELEVENLABS_CACHE_DIR, else CACHE_ROOT_DEFAULT (looked up at call time)."""
+    root = root or os.environ.get("ELEVENLABS_CACHE_DIR") or CACHE_ROOT_DEFAULT
     h = request_hash(endpoint, body, query)
     d = os.path.join(root, h)
     blob_path, meta_path = os.path.join(d, "response" + suffix), os.path.join(d, "request.json")

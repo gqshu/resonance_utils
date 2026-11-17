@@ -22,6 +22,7 @@ class EnergizerParams:
     # AI musical layer
     music_source: str = "none"               # elevenlabs | none (all-procedural; the M1 default)
     music_style: str = "ambient_electronic_keys"
+    music_variant: str = "a"                 # a (original 4-section plan) | b rotation | c evolving | d contrast
     motif: bool = True
     # procedural layers
     pad_timbre: str = "warm_additive"        # warm_additive | glass | string_ensemble

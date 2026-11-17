@@ -27,7 +27,24 @@ class APIError(RuntimeError):
         self.code = code
 
 
+def load_dotenv(path=".env"):
+    """Set variables from a KEY=VALUE .env file (cwd) that aren't already in the environment."""
+    try:
+        with open(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip().removeprefix("export ").strip()
+                os.environ.setdefault(k, v.strip().strip("'\""))
+    except OSError:
+        pass
+
+
 def api_key(required=True):
+    if not os.environ.get("ELEVENLABS_API_KEY"):
+        load_dotenv()
     key = os.environ.get("ELEVENLABS_API_KEY", "")
     if required and not key:
         raise SystemExit("ELEVENLABS_API_KEY is not set (or use --from-dir / --dry-run)")
@@ -57,23 +74,25 @@ def log_usage(endpoint, body, query=None, seconds=None, n_bytes=None, path=None)
 
 
 def post(endpoint, body, query=None, accept="audio/*", key=None, base=None, timeout=180,
-         retries=6, seconds=None):
-    """POST JSON to endpoint (e.g. '/v1/sound-generation'), return the response bytes.
-    seconds: audio length requested, recorded in the usage log."""
+         retries=6, seconds=None, with_headers=False, data=None, content_type="application/json"):
+    """POST to endpoint (e.g. '/v1/sound-generation'), return the response bytes (and headers).
+    body is JSON-encoded unless raw `data` is given (e.g. multipart). seconds: audio length
+    requested, recorded in the usage log."""
     key = key if key is not None else api_key()
     base = base or api_base()
     qs = "&".join(f"{k}={v}" for k, v in (query or {}).items())
     url = f"{base}{endpoint}" + (f"?{qs}" if qs else "")
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
-                                 headers={"xi-api-key": key, "Content-Type": "application/json",
-                                          "Accept": accept})
+    req = urllib.request.Request(url, data=data if data is not None else json.dumps(body).encode(),
+                                 method="POST", headers={"xi-api-key": key, "Content-Type": content_type,
+                                                         "Accept": accept})
     delay = 4.0
     for _ in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 blob = r.read()
+                headers = dict(r.headers.items())
             log_usage(endpoint, body, query, seconds, len(blob))
-            return blob
+            return (blob, headers) if with_headers else blob
         except urllib.error.HTTPError as e:
             msg = e.read().decode(errors="replace")[:300]
             if e.code == 429 or e.code >= 500:
@@ -100,3 +119,17 @@ def sound_generation(text, duration, influence, model, output_format, loop=True,
 def pcm_unavailable(err):
     """True when an error means the plan can't return PCM (fall back to a compressed format)."""
     return isinstance(err, APIError) and err.code in (400, 402, 403, 422)
+
+
+def multipart(fields, files):
+    """Encode a multipart/form-data body. files: {name: (filename, bytes, mime)}."""
+    import uuid
+    b = uuid.uuid4().hex
+    out = []
+    for k, v in fields.items():
+        out += [f"--{b}", f'Content-Disposition: form-data; name="{k}"', "", str(v)]
+    parts = "\r\n".join(out).encode() + (b"\r\n" if out else b"")
+    for k, (fn, blob, mime) in files.items():
+        parts += (f'--{b}\r\nContent-Disposition: form-data; name="{k}"; filename="{fn}"\r\n'
+                  f"Content-Type: {mime}\r\n\r\n").encode() + blob + b"\r\n"
+    return parts + f"--{b}--\r\n".encode(), f"multipart/form-data; boundary={b}"

@@ -9,6 +9,8 @@ from resonance_utils.core import cache, elevenlabs as el, loop, slots
 
 
 class _Resp(io.BytesIO):
+    headers = {"song-id": "abc"}
+
     def __enter__(self):
         return self
 

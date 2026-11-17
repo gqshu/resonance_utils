@@ -15,7 +15,11 @@ class EnergizerType(SoundscapeType):
 
     def add_gen_args(self, ap):
         ap.add_argument("--out", default="build", help="build root; beds go to <out>/energizer/<bed_id>/")
-        ap.add_argument("--dry-run", action="store_true", help="print the params and bed_id, render nothing")
+        ap.add_argument("--dry-run", action="store_true",
+                        help="print the params, bed_id and any API calls with their cost; render nothing")
+        ap.add_argument("--reference-only", action="store_true",
+                        help="with --music-source elevenlabs: compose the AI tracks and write the "
+                             "un-separated reference mix (M2 c), not the hybrid")
         for f in dataclasses.fields(EnergizerParams):
             flag = "--" + f.name.replace("_", "-")
             if f.type in (bool, "bool"):
@@ -32,12 +36,21 @@ class EnergizerType(SoundscapeType):
         slots = lever_slots()
         bid = bed_id(params, slots)
         out = os.path.join(type_dir(args.out, TYPE), bid)
+        if params.music_source == "elevenlabs":
+            from .render import render_reference
+            if args.reference_only or args.dry_run:
+                render_reference(params, type_dir(args.out, TYPE), dry_run=args.dry_run)
+                return 0
+            from .render import render
+            render(params, type_dir(args.out, TYPE))
+            return 0
         print(json.dumps(dict(bed_id=bid, out=out, params=dataclasses.asdict(params), lever_slots=slots),
                          indent=2))
         if args.dry_run:
             return 0
-        print("energizer rendering is not implemented yet (plan §12, M1: procedural core)")
-        return 3
+        from .render import render
+        render(params, type_dir(args.out, TYPE))
+        return 0
 
     def add_deploy_args(self, ap):
         ap.add_argument("beds", nargs="*")
