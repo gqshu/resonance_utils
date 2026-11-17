@@ -40,17 +40,45 @@ def noise_hit(rng, lo, hi, attack, decay, length=0.25):
     return _bandpass(rng.standard_normal(n), lo, hi) * env
 
 
-def events(style, tempo, entry_s, ramp_s, plateau_s, handoff_s, seed):
-    """[(beat, kind, vel)]: every onset, in beats."""
+def section_at(sections, beat):
+    for s in sections or []:
+        if s["start_beat"] <= beat < s["end_beat"]:
+            return s
+    return None
+
+
+def events(style, tempo, entry_s, ramp_s, plateau_s, handoff_s, seed, sections=None):
+    """[(beat, kind, vel)]: every onset, in beats.
+
+    With sections (hybrid: the AI track's sections in bed time) the pulse follows the music:
+    a breakdown drops kick and hats to soft shakers, each main section gets the next of three
+    pattern variants (as styled / half-time kick / busier 16th ghosts), and the last bar before
+    a section change is a fill (kick out on beat 4, 16th shakers rising), so the groove changes
+    when the music does. Never anything finer than 16ths."""
     st = STYLES[style]
+    mains = [s["index"] for s in (sections or []) if s["role"] == "main"]
     rng = np.random.default_rng([seed, 31])
     hats_from = (ramp_s[0] + ramp_s[1]) / 2
     ev = []
     b = np.ceil(tempo.beat_at(entry_s) / 4) * 4            # start on a bar line
     while b < tempo.total_beats - 1e-9:
         t_bar = float(tempo.time_of_beat(b))
-        for k in st["kick"]:
+        sec = section_at(sections, b)
+        nxt = section_at(sections, b + 4)
+        fill = sec is not None and nxt is not None and nxt is not sec and t_bar >= ramp_s[0]
+        if sec is not None and sec["role"] == "breakdown":
+            ev += [(b + k + o, "shaker", 0.3 if o else 0.4) for k in range(4) for o in (0.0, 0.5)]
+            b += 4
+            continue
+        var = mains.index(sec["index"]) % 3 if sec is not None and sec["index"] in mains else 0
+        kicks = [0, 2] if (var == 1 and st["kick"]) else st["kick"]
+        if fill:
+            kicks = [k for k in kicks if k < 3]
+            ev += [(b + 2 + j * 0.25, "shaker", 0.3 + 0.05 * j) for j in range(8)]
+        for k in kicks:
             ev.append((b + k, "kick", 1.0 if k == 0 else 0.85))
+        if var == 2 and t_bar >= plateau_s[0] and t_bar < handoff_s[0]:
+            ev += [(b + k + 0.75, "hat", 0.35) for k in range(4)]
         if st["hats"] and t_bar >= hats_from and t_bar < handoff_s[0] + (handoff_s[1] - handoff_s[0]) / 2:
             ev += [(b + k + 0.5, "hat", 0.7) for k in range(4)]
         if st["shaker"] and (t_bar >= plateau_s[0] or (not st["kick"] and t_bar >= ramp_s[0])) \

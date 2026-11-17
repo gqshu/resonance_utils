@@ -70,21 +70,23 @@ def render(params, out_root, log=print):
         f"{params.key_root} {params.mode}, {len(chords)} chords ({' '.join(c['label'] for c in chords[:4])} ...)")
 
     # bass first: its partials are audited against the pad's
-    bnotes = bass.notes(chords, tm, arc.entries["bass"] * 1.0, arc.phases["plateau"], arc.phases["handoff"])
+    sections = ai["sections"] if ai else None
+    bnotes = bass.notes(chords, tm, arc.entries["bass"] * 1.0, arc.phases["plateau"], arc.phases["handoff"],
+                        sections)
     bpart = {i: bass.partials(bass.root_hz(c["root_pc"]), slots) for i, c in enumerate(chords)}
-    rows = pad.plan(chords, slots, params.pad_timbre, params.pad_tuning, arc.phases["plateau"], bpart)
+    rows = pad.plan(chords, slots, params.pad_timbre, params.pad_tuning, arc.phases["plateau"], bpart, sections)
 
     stems = {}
     t0 = time.time()
-    p = pad.render(chords, rows, n, n_cr, params.pad_timbre, bright, params.seed)
-    stems["pad"] = fx.reverb(p, params.seed)
+    p_main, p_hand = pad.render(chords, rows, n, n_cr, params.pad_timbre, bright, params.seed, split=True)
+    stems["pad"] = fx.reverb(p_main, params.seed) + fx.REVERB_DRY * p_hand
     log(f"  pad: {sum(len(r['partials']) for r in rows)} partials over {len(rows)} chords, "
         f"{sum(len(r['dropped']) for r in rows)} dropped ({time.time() - t0:.1f} s)")
     stems["bass"] = bass.render(bnotes, n, slots)
     onsets = {"bass": [dict(beat=nt["beat"], sample=int(round(nt["t0"] * FS))) for nt in bnotes]}
     if params.pulse_style != "none":
         ev = pulse.events(params.pulse_style, tm, arc.entries["pulse"], arc.phases["ramp"],
-                          arc.phases["plateau"], arc.phases["handoff"], params.seed)
+                          arc.phases["plateau"], arc.phases["handoff"], params.seed, sections)
         stems["pulse"], onsets["pulse"] = pulse.render(ev, tm, n, params.seed,
                                                       lambda t: float(np.interp(t * arcmod.CR, np.arange(n_cr), bright)))
     if params.texture_source == "procedural_air":

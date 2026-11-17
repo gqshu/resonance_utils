@@ -16,6 +16,7 @@ import numpy as np
 from ..core.audio_io import FS
 
 BLOCK = 1024
+DEFAULT_LATENCY_MS = 86.0   # measured 82-90 ms on every calibrated run so far: used when nothing correlates
 CLICK = np.hanning(96)[48:]
 
 
@@ -118,7 +119,7 @@ def stretch_to_map(x, anchors_in, anchors_out, max_stretch=None, calib_channels=
     if ok.sum() >= 2:
         lag_at = np.interp(rel, c[ok], lag[ok])
     else:                                  # nothing to correlate on (e.g. a soft solo line)
-        fb = fallback_lag_ms / 1000 * FS if fallback_lag_ms is not None else (float(np.median(lag)) if len(lag) else 0.0)
+        fb = (fallback_lag_ms if fallback_lag_ms is not None else DEFAULT_LATENCY_MS) / 1000 * FS
         lag_at = np.full(len(rel), fb)
     ao_c = ao - lag_at
     ao_c[0] = ao[0]
@@ -126,7 +127,7 @@ def stretch_to_map(x, anchors_in, anchors_out, max_stretch=None, calib_channels=
     c2, lag2, pk2 = measure_lag(x[:, cc], y[:, cc], ai, ao)
     ok2 = pk2 > 0.2
     res = np.abs(lag2[ok2]) / FS * 1000 if ok2.any() else np.array([np.nan])
-    info = dict(calibrated_on="audio" if ok.sum() >= 2 else ("fallback" if fallback_lag_ms is not None else "none"),
+    info = dict(calibrated_on="audio" if ok.sum() >= 2 else "fallback latency",
                 latency_ms=[round(float(lag_at.min()) / FS * 1000, 1), round(float(lag_at.max()) / FS * 1000, 1)],
                 residual_ms=dict(median=round(float(np.median(res)), 2), max=round(float(np.max(res)), 2),
                                  regions=int(ok2.sum())),

@@ -125,3 +125,36 @@ def test_variant_plans_fill_the_ramp_exactly():
         ai = [p[0] for p in pairs]
         assert len(set(ai)) >= len(ai) - 2, v                       # (almost) no AI bars dropped or repeated
         assert "risers" not in plan["chunks"][0]["negative_styles"]
+
+
+def test_pulse_and_bass_follow_sections():
+    from resonance_utils.energizer.synths import bass, pulse
+    arc = load_arc("wake_to_work_4m")
+    tm = from_arc(arc, BPM, 0.85)
+    b_pl = round(float(tm.beat_at(arc.phases["plateau"][0])) / 4) * 4
+    secs = [dict(name="[Full]", role="main", index=3, start_beat=b_pl, end_beat=b_pl + 32),
+            dict(name="[Breakdown]", role="breakdown", index=4, start_beat=b_pl + 32, end_beat=b_pl + 48),
+            dict(name="[Return]", role="main", index=5, start_beat=b_pl + 48, end_beat=b_pl + 96)]
+    ev = pulse.events("soft_four", tm, arc.entries["pulse"], arc.phases["ramp"], arc.phases["plateau"],
+                      arc.phases["handoff"], 1, secs)
+    kicks = {round(b, 3) for b, k, _ in ev if k == "kick"}
+    assert not any(b_pl + 32 <= b < b_pl + 48 for b in kicks)          # breakdown: no kick
+    assert b_pl + 31 not in kicks and b_pl + 28 in kicks               # fill bar: beat 4 left out
+    assert all(abs(b * 4 - round(b * 4)) < 1e-9 for b, _, _ in ev)     # nothing finer than 16ths
+    assert any(b_pl + 50 == b for b in kicks) and b_pl + 49 not in kicks   # 2nd main section: half-time kick
+    chords = [dict(start_beat=float(b), end_beat=float(b + 8), start_s=float(tm.time_of_beat(b)),
+                   end_s=float(tm.time_of_beat(b + 8)), root_pc=2) for b in range(int(b_pl), int(b_pl) + 96, 8)]
+    nts = bass.notes(chords, tm, 60, arc.phases["plateau"], arc.phases["handoff"], secs)
+    in_bd = [n for n in nts if b_pl + 32 <= n["beat"] < b_pl + 48]
+    assert len(in_bd) == 2 and all(n["vel"] == 0.7 for n in in_bd)     # breakdown: held soft notes
+
+
+def test_batch_file_validation(tmp_path):
+    from resonance_utils.energizer.batch import load_tracks
+    p = tmp_path / "t.yaml"
+    p.write_text("- name: x\n  key_root: F\n  plateau_bpm: 114\n- seed: 3\n")
+    rows = load_tracks(str(p))
+    assert [n for n, _ in rows] == ["x", "track2"] and rows[0][1].music_source == "elevenlabs"
+    p.write_text("- name: x\n  tempo: 114\n")
+    with pytest.raises(SystemExit):
+        load_tracks(str(p))

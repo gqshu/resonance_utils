@@ -15,6 +15,10 @@ from . import analyze, conform, el_music
 from .stretch import stretch_to_map
 from .theory import NOTE_PC, PC_NAME
 
+class AIRejected(SystemExit):
+    """The AI track failed a check a new seed can fix (key, tempo). Batch runs retry on it."""
+
+
 MOTIF_FIRST_BEAT = 4                      # bed beat of the motif's first beat (bar 2: bar 1 is in the fade-in)
 
 
@@ -50,6 +54,37 @@ def bed_chords(pairs, ai_bars, tempo, key_root, conf_min):
     return rows
 
 
+def section_role(text):
+    t = text.lower()
+    return ("breakdown" if "breakdown" in t else "outro" if ("outro" in t or "handoff" in t)
+            else "intro" if "intro" in t else "main")
+
+
+def bed_sections(plan, grid, pairs, tempo):
+    """The plan's chunks as bed-time sections: [dict(name, role, index, start_beat, end_beat,
+    start_s, end_s)], from the chunk edges in AI bars and the bar map."""
+    per, t0, db = grid["period_s"], grid["t0"], grid["downbeat"]
+    edges, t = [], 0.0
+    for c in plan["chunks"]:
+        a = int(round(((t - t0) / per - db) / 4))
+        t += c["duration_ms"] / 1000
+        b = int(round(((t - t0) / per - db) / 4))
+        edges.append((c["text"], max(0, a), b))
+    out = []
+    for i, (name, a0, a1) in enumerate(edges):
+        bed = [m for ai, m in pairs if a0 <= ai < a1]
+        if not bed:
+            continue
+        b0, b1 = 4.0 * min(bed), min(4.0 * (max(bed) + 1), tempo.total_beats)
+        if out and b0 < out[-1]["end_beat"]:
+            b0 = out[-1]["end_beat"]
+        if b1 <= b0:
+            continue
+        out.append(dict(name=name, role=section_role(name), index=i, start_beat=b0, end_beat=b1,
+                        start_s=round(float(tempo.time_of_beat(b0)), 4), end_s=round(float(tempo.time_of_beat(b1)), 4)))
+    return out
+
+
 def conform_motif(path, tempo, params, slots, th, n, fallback_lag_ms=None):
     x = read_wav(path)
     entry = params.plateau_bpm * params.entry_tempo_ratio
@@ -80,17 +115,19 @@ def ai_layer(params, arc, tempo, out, slots, th, n, log=print):
         f"key {key['ks_major_tonic']} (pitch set {'ok' if key['pitch_set_ok'] else 'MISMATCH'}), "
         f"{len(bars)} bars: {' '.join(r['label'] for r in bars[:8])} ...")
     if not key["pitch_set_ok"]:
-        raise SystemExit(f"AI track is not in {params.key_root} {params.mode} (its pitch set is shifted by "
+        raise AIRejected(f"AI track is not in {params.key_root} {params.mode} (its pitch set is shifted by "
                          f"{key['pitch_set_shift']} semitones): the pad and bass would follow the wrong key. "
                          "Regenerate with another --seed or --music-variant")
     if not grid["tempo_ok"]:
-        raise SystemExit(f"AI track tempo {grid['bpm']} is outside +/-3% of {params.plateau_bpm}: "
+        raise AIRejected(f"AI track tempo {grid['bpm']} is outside +/-3% of {params.plateau_bpm}: "
                          "regenerate with another --seed")
     pairs, ai_bar_t = conform.bar_map(grid, conform.ai_sections(main, el_music.PREROLL_S, phases), tempo, arc,
                                       el_music.PREROLL_S)
     edit, starts = conform.splice(music, pairs, ai_bar_t, grid["period_s"])
     drums = next((v for k, v in stems.items() if "drum" in k), None)
-    guide = conform.splice(drums, pairs, ai_bar_t, grid["period_s"])[0] if drums is not None else None
+    audible = drums is not None and 20 * np.log10(np.sqrt(np.mean(drums ** 2)) + 1e-12) > -90   # not silent
+    # calibrate on the drums when there are any; otherwise on the music itself (guide=None)
+    guide = conform.splice(drums, pairs, ai_bar_t, grid["period_s"])[0] if audible else None
     music_bed, sinfo = conform.time_map(edit, starts, pairs, grid["period_s"], tempo, n, th["MAX_STRETCH"],
                                         guide=guide)
     music_bed = conform.band_handling(music_bed, slots, th)
@@ -105,10 +142,13 @@ def ai_layer(params, arc, tempo, out, slots, th, n, log=print):
         out_stems["motif"], minfo = conform_motif(os.path.join(out, "motif_raw.wav"), tempo, params, slots, th, n,
                                                   fallback_lag_ms=lat)
     chords = bed_chords(pairs, bars, tempo, params.key_root, th["CHORD_CONF_MIN"])
+    sections = bed_sections(main, grid, pairs, tempo)
     with open(os.path.join(out, "ai_analysis.json"), "w") as fh:
         json.dump(dict(grid=grid, key=key, ai_bars=bars, bar_map=pairs, separation=sep,
-                       music_stems=el_music.music_stem_names(stems), stretch=sinfo, motif=minfo),
+                       music_stems=el_music.music_stem_names(stems), stretch=sinfo, motif=minfo,
+                       sections=sections),
                   fh, indent=2, default=float)
     write_wav24(os.path.join(out, "ai_stems", "music_conformed.wav"), music_bed)
-    return dict(stems=out_stems, chords=chords, grid=grid, key=key, stretch=sinfo, motif=minfo,
+    log("  sections: " + ", ".join(f"{s['name']} {s['start_s']:.0f}-{s['end_s']:.0f}s" for s in sections))
+    return dict(stems=out_stems, chords=chords, sections=sections, grid=grid, key=key, stretch=sinfo, motif=minfo,
                 separation=sep, dropped_bars=n_ai - len(used))

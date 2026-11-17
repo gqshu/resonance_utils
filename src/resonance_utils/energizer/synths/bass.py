@@ -15,6 +15,8 @@ HARMONICS = ((1, 1.0), (2, 0.35), (3, 0.15))
 ATTACK_S, RELEASE_S = 0.04, 0.3
 PAT_ATTACK_S, PAT_RELEASE_S = 0.015, 0.04
 PATTERN = [(0.0, 1.0), (0.5, 0.55), (1.0, 0.8), (1.5, 0.55), (2.0, 0.9), (2.5, 0.55), (3.0, 0.8), (3.5, 0.6)]
+# (beat, velocity, length in beats): a second plateau pattern, half notes with an 8th pickup
+PATTERN_B = [(0.0, 1.0, 1.9), (2.0, 0.9, 1.4), (3.5, 0.6, 0.45)]
 
 
 def root_hz(pc):
@@ -31,10 +33,19 @@ def partials(f0, slots):
             if f0 * h < LOWPASS_HZ and partial_clash(f0 * h, slots) is None]
 
 
-def notes(chords, tempo, entry_s, plateau_s, handoff_s):
-    """Note list: dict(t0, t1, pc, vel, attack, release, beat)."""
+def notes(chords, tempo, entry_s, plateau_s, handoff_s, sections=None):
+    """Note list: dict(t0, t1, pc, vel, attack, release, beat). With sections, a breakdown holds
+    soft notes and the main plateau sections alternate between the 8th pattern and PATTERN_B."""
+    from .pulse import section_at
+    mains = [s["index"] for s in (sections or []) if s["role"] == "main"]
     out = []
     for c in chords:
+        sec = section_at(sections, c["start_beat"])
+        if sec is not None and sec["role"] == "breakdown" and c["end_s"] > entry_s:
+            t0 = max(c["start_s"], entry_s)
+            out.append(dict(t0=t0, t1=c["end_s"], pc=c["root_pc"], vel=0.7, attack=ATTACK_S,
+                            release=RELEASE_S, beat=float(tempo.beat_at(t0))))
+            continue
         if c["end_s"] <= entry_s:
             continue
         if c["start_s"] < plateau_s[0]:
@@ -43,13 +54,15 @@ def notes(chords, tempo, entry_s, plateau_s, handoff_s):
                             release=RELEASE_S, beat=float(tempo.beat_at(t0))))
             continue
         b = c["start_beat"]
+        alt = sec is not None and sec["index"] in mains and mains.index(sec["index"]) % 2 == 1
+        pattern = PATTERN_B if alt else [(o, v, 0.45) for o, v in PATTERN]
         while b < c["end_beat"] - 1e-9:
-            for off, vel in PATTERN:
+            for off, vel, ln in pattern:
                 bb = b + off
                 if bb >= c["end_beat"] - 1e-9:
                     break
                 t0 = float(tempo.time_of_beat(bb))
-                t1 = float(tempo.time_of_beat(bb + 0.45))
+                t1 = float(tempo.time_of_beat(min(bb + ln, c["end_beat"])))
                 if t0 >= handoff_s[0]:                  # hand-off: back to held notes, thinner
                     vel *= 0.8
                 out.append(dict(t0=t0, t1=t1, pc=c["root_pc"], vel=vel, attack=PAT_ATTACK_S,

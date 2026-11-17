@@ -114,17 +114,120 @@ def chord_partials(voicing, tb, slots, extra=()):
     return sorted(ok, key=lambda q: q["f"]), dropped
 
 
-def plan(chords, slots, timbre, tuning, plateau_s, bass_partials=None):
-    """Voicing + partials per chord. 3 voices before the plateau, 4 from it (fuller)."""
+def invert(voicing, slots):
+    """Next inversion: lowest voice up an octave if it fits, else the top voice down."""
+    lo, hi = voice_range(slots)
+    v = sorted(voicing)
+    if v and v[0] * 2 <= hi and partial_clash(v[0] * 2, slots) is None and all(abs(v[0] * 2 - g) > 3 for g in v):
+        return sorted(v[1:] + [v[0] * 2])
+    if v and v[-1] / 2 >= lo and partial_clash(v[-1] / 2, slots) is None and all(abs(v[-1] / 2 - g) > 3 for g in v):
+        return sorted([v[-1] / 2] + v[:-1])
+    return v
+
+
+ENV_CHECK_FS = 8000
+ENV_LIMIT_DB = -43.0           # per chord, 3 dB under the bed's provisional PAD_NATIVE_MOD_MAX_DB
+
+
+def env_mod_db(parts, slots, seeds=3, seconds=2.0):
+    """Amplitude-envelope modulation (dB re 100 %) of a sustained chord inside the AM band, in each
+    native-mod band, max over a few random phase sets. Pairwise spacing misses this: a just minor
+    triad (10:12:15) repeats at root/10 (19.6 Hz for G), so its envelope pulses there even though
+    no two partials are 12-20 Hz apart."""
+    from ...core.analysis import band_std
+    am = slots["am_band"]
+    fs = [p for p in parts if am["lo_hz"] <= p["f"] <= am["hi_hz"]]
+    if len(fs) < 2:
+        return -120.0
+    t = np.arange(int(seconds * ENV_CHECK_FS)) / ENV_CHECK_FS
+    blk = ENV_CHECK_FS // 1000
+    worst = -120.0
+    for s in range(seeds):
+        ph = np.random.default_rng(s).uniform(0, 2 * np.pi, len(fs))
+        x = sum(p["amp"] * np.sin(2 * np.pi * p["f"] * t + q) for p, q in zip(fs, ph))
+        env = np.sqrt((x[: len(x) // blk * blk] ** 2).reshape(-1, blk).mean(1))
+        for lo, hi in slots["native_mod_bands_hz"]:
+            d = band_std(env, 1000, lo, hi) * np.sqrt(2) / (env.mean() + 1e-12)
+            worst = max(worst, 20 * np.log10(d + 1e-9))
+    return float(worst)
+
+
+THIRD_TUNINGS = {3: (6 / 5, 2 ** (3 / 12), 7 / 6), 4: (5 / 4, 2 ** (4 / 12))}   # just first
+
+
+def retune_third(voicing, chord, ratio):
+    """The voicing with every chord third (any octave) retuned to `ratio` over the chord root."""
+    if chord.get("third") not in THIRD_TUNINGS:
+        return voicing
+    just = THIRD_TUNINGS[chord["third"]][0]
+    root = midi_hz(48 + chord["root_pc"])
+    out = []
+    for f in voicing:
+        r = f / root
+        k = np.floor(np.log2(r))
+        out.append(f * ratio / just if abs(r / 2 ** k - just) < 2e-3 else f)
+    return sorted(out)
+
+
+def clear_envelope(voicing, tb, slots, extra, limit=ENV_LIMIT_DB, chord=None):
+    """Best of a few voicings by envelope modulation: inversions, and for each the chord's third in
+    just, equal-tempered and (minor) septimal tuning. A just triad repeats at root/10 (minor) or
+    root/4 (major); when that lands in a native-mod band only the third's tuning moves it. If no
+    candidate is under the limit, drop upper harmonics (highest h first) of the best until it is.
+    Returns (voicing, parts, dropped, db)."""
+    base = [voicing]
+    v = voicing
+    for _ in range(min(3, len(voicing))):
+        v = invert(v, slots)
+        if v not in base:
+            base.append(v)
+    tunings = THIRD_TUNINGS.get((chord or {}).get("third"), (None,))
+    cands = []
+    for r in tunings:
+        for vc in base:
+            vv = vc if r is None or chord is None else retune_third(vc, chord, r)
+            if all(partial_clash(f, slots) is None for f in vv) and vv not in cands:
+                cands.append(vv)
+    scored = []
+    for vc in cands:
+        parts, dropped = chord_partials(vc, tb, slots, extra)
+        scored.append((env_mod_db(parts, slots), vc, parts, dropped))
+        if scored[-1][0] <= limit:
+            break
+    db, vc, parts, dropped = min(scored, key=lambda r: r[0])
+    while db > limit:
+        upper = [p for p in parts if p["h"] > 1]
+        if not upper:
+            break
+        worst = max(upper, key=lambda p: (p["h"], -p["amp"]))
+        parts = [p for p in parts if p is not worst]
+        dropped = dropped + [{**worst, "why": "envelope periodicity in a native-mod band"}]
+        db = env_mod_db(parts, slots)
+    return vc, parts, dropped, round(db, 1)
+
+
+def plan(chords, slots, timbre, tuning, plateau_s, bass_partials=None, sections=None):
+    """Voicing + partials per chord. 3 voices before the plateau, 4 from it (fuller). With
+    sections, a chord that comes back within a section alternates between its voicing and the
+    next inversion, so a looping progression doesn't sound identical every time."""
+    from .pulse import section_at
     tb = TIMBRES[timbre]
     prev, rows = None, []
+    seen = {}
     for i, c in enumerate(chords):
         nv = 4 if c["start_s"] >= plateau_s[0] - 1e-6 else 3
         voicing = voice_chord(c, prev, slots, tuning, nv)
+        if sections:
+            sec = section_at(sections, c["start_beat"])
+            key = (sec["index"] if sec else None, c["label"])
+            seen[key] = seen.get(key, 0) + 1
+            if seen[key] % 2 == 0:
+                voicing = invert(voicing, slots)
         extra = (bass_partials or {}).get(i, [])
-        parts, dropped = chord_partials(voicing, tb, slots, extra)
+        voicing, parts, dropped, env_db = clear_envelope(voicing, tb, slots, extra, chord=c)
         rows.append(dict(chord=i, label=c["label"], voicing_hz=[round(f, 3) for f in voicing],
-                         partials=parts, dropped=dropped, native_mod_bands_hz=slots["native_mod_bands_hz"]))
+                         partials=parts, dropped=dropped, env_mod_db=env_db,
+                         native_mod_bands_hz=slots["native_mod_bands_hz"]))
         prev = voicing
     return rows
 
@@ -153,8 +256,11 @@ def transition_clashes(rows, bands):
     return out_late, in_early
 
 
-def render(chords, rows, n, n_cr, timbre, brightness_db, seed):
-    """Pad stem (dry). brightness_db: CR curve of tilt in dB/octave."""
+def render(chords, rows, n, n_cr, timbre, brightness_db, seed, split=False):
+    """Pad stem (dry). brightness_db: CR curve of tilt in dB/octave. With split, returns
+    (main, handover): the partials that hand over in sequence at a chord change go to a separate
+    bus that must stay out of the reverb, or the old partial's tail rings under the new one (a
+    whole-tone step around 330-370 Hz is a 40 Hz beat)."""
     tb = TIMBRES[timbre]
     rng = np.random.default_rng([seed, 21])
     walk = [additive.slow_noise(rng, n_cr, 3.0, 1.5) for _ in range(5)]
@@ -182,8 +288,11 @@ def render(chords, rows, n, n_cr, timbre, brightness_db, seed):
                                             gl=np.cos(th), gr=np.sin(th), step=np.zeros(n_cr))
                 g = 10 ** (tilt[a0:a1] * np.log2(p["f"] / TILT_REF_HZ) / 20)
                 tr["step"][a0:a1] = p["amp"] / np.sqrt(tb["copies"]) * walk[p["voice"] % 5][a0:a1] * g
-    out = []
-    for tr in tracks.values():
+    flagged = {round(f, 2) for _, f in out_late | in_early}
+    main, hand = [], []
+    for (fk, _), tr in tracks.items():
         tr["amp"] = additive.smooth_power(tr.pop("step"), XFADE_S)
-        out.append(tr)
-    return additive.render(out, n)
+        (hand if split and fk in flagged else main).append(tr)
+    if not split:
+        return additive.render(main, n)
+    return additive.render(main, n), additive.render(hand, n)

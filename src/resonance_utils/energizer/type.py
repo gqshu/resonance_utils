@@ -17,6 +17,12 @@ class EnergizerType(SoundscapeType):
         ap.add_argument("--out", default="build", help="build root; beds go to <out>/energizer/<bed_id>/")
         ap.add_argument("--dry-run", action="store_true",
                         help="print the params, bed_id and any API calls with their cost; render nothing")
+        ap.add_argument("--batch", metavar="FILE",
+                        help="YAML list of tracks (each a dict of params, plus an optional name); renders "
+                             "each end to end, retrying a key/tempo miss with the next seed")
+        ap.add_argument("--max-retries", type=int, default=2,
+                        help="with --batch: new seeds to try per track after a key/tempo miss (each costs a "
+                             "new composition, ~3,100 credits)")
         ap.add_argument("--reference-only", action="store_true",
                         help="with --music-source elevenlabs: compose the AI tracks and write the "
                              "un-separated reference mix (M2 c), not the hybrid")
@@ -30,6 +36,9 @@ class EnergizerType(SoundscapeType):
                 ap.add_argument(flag, type=kind, default=f.default)
 
     def gen(self, args, ap):
+        if args.batch:
+            from .batch import run_batch
+            return run_batch(args.batch, type_dir(args.out, TYPE), args.max_retries, dry_run=args.dry_run)
         from .config import bed_id, lever_slots
         fields = dataclasses.fields(EnergizerParams)
         params = EnergizerParams(**{f.name: getattr(args, f.name) for f in fields})

@@ -8,7 +8,11 @@ from ..core.audio_io import FS
 from .arc import CR
 
 
-def reverb(x, seed, decay_s=2.4, wet=0.3, predelay_s=0.02):
+REVERB_WET = 0.3
+REVERB_DRY = 1 - REVERB_WET          # level of the direct path, for partials kept out of the reverb
+
+
+def reverb(x, seed, decay_s=2.4, wet=REVERB_WET, predelay_s=0.02):
     """LTI convolution with a seeded, decorrelated stereo noise IR (exponential decay, darker tail).
     Deterministic and unmodulated: a steady chord stays steady. (The plan names an FDN; any LTI
     reverb meets the 'no modulated tails' rule, and this one is vectorised.)"""
