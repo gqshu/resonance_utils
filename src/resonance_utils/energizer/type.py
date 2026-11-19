@@ -62,18 +62,12 @@ class EnergizerType(SoundscapeType):
         return 0
 
     def add_deploy_args(self, ap):
-        ap.add_argument("beds", nargs="*")
-        ap.add_argument("--build", default="build")
-        ap.add_argument("--out", default="deploy")
-        ap.add_argument("--clean", action="store_true")
+        from . import deploy as _deploy
+        _deploy.add_args(ap)
 
     def deploy(self, args, ap):
-        build = type_dir(args.build, TYPE)
-        if not os.path.isdir(build) or not os.listdir(build):
-            print(f"  no energizer beds in {build}/")
-            return 1
-        print("energizer deploy is not implemented yet (needs the QA gate, plan §9 / M3)")
-        return 3
+        from . import deploy as _deploy
+        return _deploy.run(args, ap)
 
     def list(self):
         from .config import load_yaml

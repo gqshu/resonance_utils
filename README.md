@@ -59,6 +59,18 @@ The AI chords then drive the pad and bass. `--reference-only` writes only `refer
 re-render. It needs `pip install soundfile soxr pylibrb` (Rubber Band is GPL: fine offline, never
 in the app).
 
+**Deploy.** `ss deploy energizer [names or bed ids] [--allow-qa-fail] [--stems]` ships each ready bed
+as one finished soundscape, `deploy/energizer/<name>/<name>.wav` (the final mix QA measured,
+about 69 MB). It comes with the tempo map, arc and chords, and one `manifest.json` that holds
+the AI sections, QA results and AI/licence flags.
+- The app adds AM and monaural beats on its own bus. The mix is notched clear of the
+  monaural tones at 220/240/260 Hz.
+- AM on the whole mix also modulates the music and percussion. `--stems` adds the six stems
+  for the plan's pad-only AM.
+- A bed is ready when its stems match the build's hashes. The plan's `lever_compatible` tag
+  gates it by default; `--allow-qa-fail` ships failing beds and records their failed checks.
+- `--batch` runs write `build/energizer/batch_<name>.json`, which maps names to bed ids.
+
 The rest of this README covers the **inducer**. The binaural beat / AM is **not added here**: the
 app's music driver adds it on its own bus.
 

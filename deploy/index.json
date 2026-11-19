@@ -1,8 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-16T06:43:09+00:00",
+  "generated_at": "2026-11-17T06:48:06+00:00",
   "generator": "resonance_utils 0.3.0",
   "packs": [
+    {
+      "type": "energizer",
+      "manifest": "energizer/manifest.json",
+      "schema_version": 1,
+      "generated_at": "2026-11-17T06:48:06+00:00",
+      "count": 5
+    },
     {
       "type": "inducer",
       "manifest": "inducer/manifest.json",

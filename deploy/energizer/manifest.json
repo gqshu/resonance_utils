@@ -1,0 +1,840 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-17T06:48:06+00:00",
+  "generator": "resonance_utils 0.3.0",
+  "type": "energizer",
+  "audio": {
+    "container": "wav",
+    "sample_rate_hz": 48000,
+    "bit_depth": 24,
+    "channels": 2,
+    "equal_length_stems": true,
+    "seamless_loop": false
+  },
+  "lever_slots": {
+    "am_band": {
+      "lo_hz": 200,
+      "hi_hz": 1000
+    },
+    "mb_slot": {
+      "carrier_hz": 220,
+      "beats_hz": [
+        20,
+        40
+      ],
+      "guard_hz": 20
+    },
+    "native_mod_bands_hz": [
+      [
+        12,
+        20
+      ],
+      [
+        38,
+        42
+      ]
+    ],
+    "mb_tones_hz": [
+      220.0,
+      240.0,
+      260.0
+    ],
+    "mb_keep_clear_hz": [
+      [
+        200.0,
+        280.0
+      ]
+    ]
+  },
+  "notes": [
+    "Each bed is one finished soundscape (`audio`), 48 kHz / 24-bit stereo, 4 min, not a loop: the tempo ramp and the arc (entry -> ramp -> plateau -> hand-off) are baked in. Play it once, start to end.",
+    "No AM or beat is baked in: add them on the app's own bus. Monaural beats: use mb_slot.carrier_hz with beats_hz; the mix is notched >= 18 dB in mb_keep_clear_hz, so the beat tones sit clear.",
+    "AM applied to this whole mix also modulates the music and percussion (the plan's design applies AM to the pad stem only; ship with --stems for that). qa.native_mod_db.mix is the mix's own modulation.",
+    "tempo_map.json gives bpm at 100 Hz and every beat / 16th / 32nd time; tempo-lock AM to it. arc.json gives the phase times; sections (hybrid beds) follow the AI music's structure.",
+    "ai_generated beds contain Eleven Music output: show the AI-content label. Confirm in writing that in-app streaming of modified tracks is covered by the ElevenLabs plan before shipping.",
+    "qa.provisional is true: every threshold is an engineering hypothesis until the M6 runs."
+  ],
+  "beds": [
+    {
+      "id": "guitars_a112",
+      "bed_id": "5905ee0df8ba",
+      "title": "guitars a112",
+      "length_s": 240.0,
+      "tempo": {
+        "entry_bpm": 95.2,
+        "plateau_bpm": 112
+      },
+      "key": "A major",
+      "phases_s": {
+        "entry": [
+          0.0,
+          30.0
+        ],
+        "ramp": [
+          30.0,
+          150.0
+        ],
+        "plateau": [
+          150.0,
+          220.0
+        ],
+        "handoff": [
+          220.0,
+          240.0
+        ]
+      },
+      "sections": [
+        {
+          "name": "[Intro]",
+          "role": "intro",
+          "start_s": 22.6891,
+          "end_s": 57.43
+        },
+        {
+          "name": "[First Lift]",
+          "role": "main",
+          "start_s": 57.43,
+          "end_s": 90.5789
+        },
+        {
+          "name": "[Build]",
+          "role": "main",
+          "start_s": 90.5789,
+          "end_s": 150.6429
+        },
+        {
+          "name": "[Full]",
+          "role": "main",
+          "start_s": 150.6429,
+          "end_s": 178.5
+        },
+        {
+          "name": "[Breakdown]",
+          "role": "breakdown",
+          "start_s": 178.5,
+          "end_s": 191.3571
+        },
+        {
+          "name": "[Return]",
+          "role": "main",
+          "start_s": 191.3571,
+          "end_s": 219.2143
+        },
+        {
+          "name": "[Outro]",
+          "role": "outro",
+          "start_s": 219.2143,
+          "end_s": 240.0
+        }
+      ],
+      "style": {
+        "music": "soft_post_rock_guitars",
+        "music_variant": "d",
+        "pulse": "broken_soft",
+        "pad": "string_ensemble",
+        "texture": "procedural_air"
+      },
+      "audio": {
+        "path": "guitars_a112/guitars_a112.wav",
+        "bytes": 69120044,
+        "sha256": "3822bd160b8507c727873b2228548604e967c0e2a982e79f80d643e47821952c"
+      },
+      "sidecars": {
+        "tempo_map": {
+          "path": "guitars_a112/tempo_map.json",
+          "bytes": 365062,
+          "sha256": "05ea3184e56b5bf7b82f4125d9ea3dcf204e5ae8ce97d01c3521b11623898422"
+        },
+        "arc": {
+          "path": "guitars_a112/arc.json",
+          "bytes": 2412,
+          "sha256": "af8acfe779dc782aac2f73cf824675010114e0e357831e8d6a5c361ffc3feac5"
+        },
+        "chords": {
+          "path": "guitars_a112/chords.json",
+          "bytes": 20725,
+          "sha256": "4f37b3ad2959229312e847d58ce8ce448f05e3f02ebfdfd188e8f34029e901ac"
+        }
+      },
+      "stems": null,
+      "qa": {
+        "tags": {
+          "am_compatible": true,
+          "mb_compatible": true,
+          "bb_compatible": true,
+          "lever_compatible": false
+        },
+        "checks": {
+          "mb_slot": true,
+          "pad_native_mod": true,
+          "grid": true,
+          "true_peak": true,
+          "beat_alignment": false
+        },
+        "provisional": true,
+        "failed": [
+          "beat_alignment"
+        ],
+        "true_peak_dbfs": -1.1,
+        "phase_rms_dbfs": {
+          "entry": -22.16,
+          "ramp": -20.98,
+          "plateau": -17.29,
+          "handoff": -21.53
+        },
+        "native_mod_db_mix": {
+          "12-20": -20.5,
+          "38-42": -23.2
+        },
+        "mb_slot_residual_db_mix": -54.0
+      },
+      "ai_generated": true,
+      "licence": "music + motif: Eleven Music (paid plan; confirm in-app streaming of modified tracks before shipping); everything else procedural, own work",
+      "source": {
+        "params": {
+          "seed": 1,
+          "arc_profile": "wake_to_work_4m",
+          "plateau_bpm": 112,
+          "entry_tempo_ratio": 0.85,
+          "key_root": "A",
+          "mode": "major",
+          "music_source": "elevenlabs",
+          "music_style": "soft_post_rock_guitars",
+          "music_variant": "d",
+          "motif": true,
+          "pad_timbre": "string_ensemble",
+          "pad_tuning": "just_per_chord",
+          "pulse_style": "broken_soft",
+          "texture_source": "procedural_air",
+          "texture_prompt": "soft steady rain on leaves, no thunder, no birds",
+          "length_s": 240
+        },
+        "generator": "resonance_utils 0.3.0 / energizer 0.1.0"
+      }
+    },
+    {
+      "id": "keys_d118",
+      "bed_id": "afddd4672da3",
+      "title": "keys d118",
+      "length_s": 240.0,
+      "tempo": {
+        "entry_bpm": 100.3,
+        "plateau_bpm": 118
+      },
+      "key": "D major",
+      "phases_s": {
+        "entry": [
+          0.0,
+          30.0
+        ],
+        "ramp": [
+          30.0,
+          150.0
+        ],
+        "plateau": [
+          150.0,
+          220.0
+        ],
+        "handoff": [
+          220.0,
+          240.0
+        ]
+      },
+      "sections": [
+        {
+          "name": "[Intro]",
+          "role": "intro",
+          "start_s": 21.5354,
+          "end_s": 54.5903
+        },
+        {
+          "name": "[First Lift]",
+          "role": "main",
+          "start_s": 54.5903,
+          "end_s": 90.6182
+        },
+        {
+          "name": "[Build]",
+          "role": "main",
+          "start_s": 90.6182,
+          "end_s": 149.7712
+        },
+        {
+          "name": "[Full]",
+          "role": "main",
+          "start_s": 149.7712,
+          "end_s": 176.2119
+        },
+        {
+          "name": "[Breakdown]",
+          "role": "breakdown",
+          "start_s": 176.2119,
+          "end_s": 192.4831
+        },
+        {
+          "name": "[Return]",
+          "role": "main",
+          "start_s": 192.4831,
+          "end_s": 220.9576
+        },
+        {
+          "name": "[Outro]",
+          "role": "outro",
+          "start_s": 220.9576,
+          "end_s": 240.0
+        }
+      ],
+      "style": {
+        "music": "ambient_electronic_keys",
+        "music_variant": "d",
+        "pulse": "soft_four",
+        "pad": "warm_additive",
+        "texture": "procedural_air"
+      },
+      "audio": {
+        "path": "keys_d118/keys_d118.wav",
+        "bytes": 69120044,
+        "sha256": "c75284890e73f1507cd4d5669d5d9d5d2559a54bb160f741b2c2121950cadba3"
+      },
+      "sidecars": {
+        "tempo_map": {
+          "path": "keys_d118/tempo_map.json",
+          "bytes": 376540,
+          "sha256": "b8a36520d222704ec46e02042ff8333a63205fb4dc39e3e6b822903cb2e630f1"
+        },
+        "arc": {
+          "path": "keys_d118/arc.json",
+          "bytes": 2412,
+          "sha256": "af8acfe779dc782aac2f73cf824675010114e0e357831e8d6a5c361ffc3feac5"
+        },
+        "chords": {
+          "path": "keys_d118/chords.json",
+          "bytes": 21917,
+          "sha256": "0acdb1a5af1c44a8fe62dccb4dda8a1cebb05a13499c7627cbee9e882c87adda"
+        }
+      },
+      "stems": null,
+      "qa": {
+        "tags": {
+          "am_compatible": true,
+          "mb_compatible": true,
+          "bb_compatible": true,
+          "lever_compatible": true
+        },
+        "checks": {
+          "mb_slot": true,
+          "pad_native_mod": true,
+          "grid": true,
+          "true_peak": true,
+          "beat_alignment": true
+        },
+        "provisional": true,
+        "failed": [],
+        "true_peak_dbfs": -1.1,
+        "phase_rms_dbfs": {
+          "entry": -23.66,
+          "ramp": -22.13,
+          "plateau": -18.79,
+          "handoff": -21.64
+        },
+        "native_mod_db_mix": {
+          "12-20": -17.7,
+          "38-42": -24.9
+        },
+        "mb_slot_residual_db_mix": -54.5
+      },
+      "ai_generated": true,
+      "licence": "music + motif: Eleven Music (paid plan; confirm in-app streaming of modified tracks before shipping); everything else procedural, own work",
+      "source": {
+        "params": {
+          "seed": 1,
+          "arc_profile": "wake_to_work_4m",
+          "plateau_bpm": 118,
+          "entry_tempo_ratio": 0.85,
+          "key_root": "D",
+          "mode": "major",
+          "music_source": "elevenlabs",
+          "music_style": "ambient_electronic_keys",
+          "music_variant": "d",
+          "motif": true,
+          "pad_timbre": "warm_additive",
+          "pad_tuning": "just_per_chord",
+          "pulse_style": "soft_four",
+          "texture_source": "procedural_air",
+          "texture_prompt": "soft steady rain on leaves, no thunder, no birds",
+          "length_s": 240
+        },
+        "generator": "resonance_utils 0.3.0 / energizer 0.1.0"
+      }
+    },
+    {
+      "id": "lofi_bb108",
+      "bed_id": "213746baafb3",
+      "title": "lofi bb108",
+      "length_s": 240.0,
+      "tempo": {
+        "entry_bpm": 91.8,
+        "plateau_bpm": 108
+      },
+      "key": "Bb major",
+      "phases_s": {
+        "entry": [
+          0.0,
+          30.0
+        ],
+        "ramp": [
+          30.0,
+          150.0
+        ],
+        "plateau": [
+          150.0,
+          220.0
+        ],
+        "handoff": [
+          220.0,
+          240.0
+        ]
+      },
+      "sections": [
+        {
+          "name": "[Intro]",
+          "role": "intro",
+          "start_s": 20.915,
+          "end_s": 54.462
+        },
+        {
+          "name": "[First Lift]",
+          "role": "main",
+          "start_s": 54.462,
+          "end_s": 88.9482
+        },
+        {
+          "name": "[Build]",
+          "role": "main",
+          "start_s": 88.9482,
+          "end_s": 149.055
+        },
+        {
+          "name": "[Full]",
+          "role": "main",
+          "start_s": 149.055,
+          "end_s": 177.9444
+        },
+        {
+          "name": "[Breakdown]",
+          "role": "breakdown",
+          "start_s": 177.9444,
+          "end_s": 191.2778
+        },
+        {
+          "name": "[Return]",
+          "role": "main",
+          "start_s": 191.2778,
+          "end_s": 220.1667
+        },
+        {
+          "name": "[Outro]",
+          "role": "outro",
+          "start_s": 220.1667,
+          "end_s": 240.0
+        }
+      ],
+      "style": {
+        "music": "warm_lofi_keys_no_beat",
+        "music_variant": "d",
+        "pulse": "shaker_only",
+        "pad": "warm_additive",
+        "texture": "procedural_air"
+      },
+      "audio": {
+        "path": "lofi_bb108/lofi_bb108.wav",
+        "bytes": 69120044,
+        "sha256": "7cba7b8731dda5cc2954c377f0e3751a91112a194d29c0c1629491d3ebc98a5d"
+      },
+      "sidecars": {
+        "tempo_map": {
+          "path": "lofi_bb108/tempo_map.json",
+          "bytes": 359207,
+          "sha256": "42af19c34319cb773bf0649510c8ae9db8e6021c861e5331568548a454693428"
+        },
+        "arc": {
+          "path": "lofi_bb108/arc.json",
+          "bytes": 2412,
+          "sha256": "af8acfe779dc782aac2f73cf824675010114e0e357831e8d6a5c361ffc3feac5"
+        },
+        "chords": {
+          "path": "lofi_bb108/chords.json",
+          "bytes": 14991,
+          "sha256": "7f701728c01dca16ac5d818d828ec2faed7d9b41ceda4e67c3eed6df20b6b171"
+        }
+      },
+      "stems": null,
+      "qa": {
+        "tags": {
+          "am_compatible": true,
+          "mb_compatible": true,
+          "bb_compatible": true,
+          "lever_compatible": true
+        },
+        "checks": {
+          "mb_slot": true,
+          "pad_native_mod": true,
+          "grid": true,
+          "true_peak": true,
+          "beat_alignment": true
+        },
+        "provisional": true,
+        "failed": [],
+        "true_peak_dbfs": -1.1,
+        "phase_rms_dbfs": {
+          "entry": -23.64,
+          "ramp": -21.93,
+          "plateau": -18.91,
+          "handoff": -22.55
+        },
+        "native_mod_db_mix": {
+          "12-20": -20.4,
+          "38-42": -31.3
+        },
+        "mb_slot_residual_db_mix": -52.4
+      },
+      "ai_generated": true,
+      "licence": "music + motif: Eleven Music (paid plan; confirm in-app streaming of modified tracks before shipping); everything else procedural, own work",
+      "source": {
+        "params": {
+          "seed": 1,
+          "arc_profile": "wake_to_work_4m",
+          "plateau_bpm": 108,
+          "entry_tempo_ratio": 0.85,
+          "key_root": "Bb",
+          "mode": "major",
+          "music_source": "elevenlabs",
+          "music_style": "warm_lofi_keys_no_beat",
+          "music_variant": "d",
+          "motif": true,
+          "pad_timbre": "warm_additive",
+          "pad_tuning": "just_per_chord",
+          "pulse_style": "shaker_only",
+          "texture_source": "procedural_air",
+          "texture_prompt": "soft steady rain on leaves, no thunder, no birds",
+          "length_s": 240
+        },
+        "generator": "resonance_utils 0.3.0 / energizer 0.1.0"
+      }
+    },
+    {
+      "id": "marimba_f114",
+      "bed_id": "6b5f6f75ef77",
+      "title": "marimba f114",
+      "length_s": 240.0,
+      "tempo": {
+        "entry_bpm": 96.9,
+        "plateau_bpm": 114
+      },
+      "key": "F major",
+      "phases_s": {
+        "entry": [
+          0.0,
+          30.0
+        ],
+        "ramp": [
+          30.0,
+          150.0
+        ],
+        "plateau": [
+          150.0,
+          220.0
+        ],
+        "handoff": [
+          220.0,
+          240.0
+        ]
+      },
+      "sections": [
+        {
+          "name": "[Intro]",
+          "role": "intro",
+          "start_s": 22.291,
+          "end_s": 54.0634
+        },
+        {
+          "name": "[First Lift]",
+          "role": "main",
+          "start_s": 54.0634,
+          "end_s": 89.0748
+        },
+        {
+          "name": "[Build]",
+          "role": "main",
+          "start_s": 89.0748,
+          "end_s": 150.3421
+        },
+        {
+          "name": "[Full]",
+          "role": "main",
+          "start_s": 150.3421,
+          "end_s": 177.7105
+        },
+        {
+          "name": "[Breakdown]",
+          "role": "breakdown",
+          "start_s": 177.7105,
+          "end_s": 192.4474
+        },
+        {
+          "name": "[Return]",
+          "role": "main",
+          "start_s": 192.4474,
+          "end_s": 219.8158
+        },
+        {
+          "name": "[Outro]",
+          "role": "outro",
+          "start_s": 219.8158,
+          "end_s": 240.0
+        }
+      ],
+      "style": {
+        "music": "minimal_marimba_pulse",
+        "music_variant": "d",
+        "pulse": "broken_soft",
+        "pad": "glass",
+        "texture": "procedural_air"
+      },
+      "audio": {
+        "path": "marimba_f114/marimba_f114.wav",
+        "bytes": 69120044,
+        "sha256": "9965080bc79c19289001582c2ccdfa47434042aaee31f953ddfaf2da1d8c984e"
+      },
+      "sidecars": {
+        "tempo_map": {
+          "path": "marimba_f114/tempo_map.json",
+          "bytes": 368090,
+          "sha256": "fd9cfda4774aacd841084c864081d642681222d066356c1960da1e5cb287b355"
+        },
+        "arc": {
+          "path": "marimba_f114/arc.json",
+          "bytes": 2412,
+          "sha256": "af8acfe779dc782aac2f73cf824675010114e0e357831e8d6a5c361ffc3feac5"
+        },
+        "chords": {
+          "path": "marimba_f114/chords.json",
+          "bytes": 25857,
+          "sha256": "3ea1851efe82a7556f6ed0dd6957859e28aa71a4dd120870cc979e6fb088d169"
+        }
+      },
+      "stems": null,
+      "qa": {
+        "tags": {
+          "am_compatible": true,
+          "mb_compatible": true,
+          "bb_compatible": true,
+          "lever_compatible": false
+        },
+        "checks": {
+          "mb_slot": true,
+          "pad_native_mod": true,
+          "grid": true,
+          "true_peak": true,
+          "beat_alignment": false
+        },
+        "provisional": true,
+        "failed": [
+          "beat_alignment"
+        ],
+        "true_peak_dbfs": -1.1,
+        "phase_rms_dbfs": {
+          "entry": -23.28,
+          "ramp": -21.84,
+          "plateau": -18.57,
+          "handoff": -20.94
+        },
+        "native_mod_db_mix": {
+          "12-20": -17.6,
+          "38-42": -25.8
+        },
+        "mb_slot_residual_db_mix": -52.9
+      },
+      "ai_generated": true,
+      "licence": "music + motif: Eleven Music (paid plan; confirm in-app streaming of modified tracks before shipping); everything else procedural, own work",
+      "source": {
+        "params": {
+          "seed": 1,
+          "arc_profile": "wake_to_work_4m",
+          "plateau_bpm": 114,
+          "entry_tempo_ratio": 0.85,
+          "key_root": "F",
+          "mode": "major",
+          "music_source": "elevenlabs",
+          "music_style": "minimal_marimba_pulse",
+          "music_variant": "d",
+          "motif": true,
+          "pad_timbre": "glass",
+          "pad_tuning": "just_per_chord",
+          "pulse_style": "broken_soft",
+          "texture_source": "procedural_air",
+          "texture_prompt": "soft steady rain on leaves, no thunder, no birds",
+          "length_s": 240
+        },
+        "generator": "resonance_utils 0.3.0 / energizer 0.1.0"
+      }
+    },
+    {
+      "id": "piano_g122",
+      "bed_id": "1b3c745319cf",
+      "title": "piano g122",
+      "length_s": 240.0,
+      "tempo": {
+        "entry_bpm": 103.7,
+        "plateau_bpm": 122
+      },
+      "key": "G major",
+      "phases_s": {
+        "entry": [
+          0.0,
+          30.0
+        ],
+        "ramp": [
+          30.0,
+          150.0
+        ],
+        "plateau": [
+          150.0,
+          220.0
+        ],
+        "handoff": [
+          220.0,
+          240.0
+        ]
+      },
+      "sections": [
+        {
+          "name": "[Intro]",
+          "role": "intro",
+          "start_s": 23.1437,
+          "end_s": 55.0823
+        },
+        {
+          "name": "[First Lift]",
+          "role": "main",
+          "start_s": 55.0823,
+          "end_s": 89.9335
+        },
+        {
+          "name": "[Build]",
+          "role": "main",
+          "start_s": 89.9335,
+          "end_s": 149.2373
+        },
+        {
+          "name": "[Full]",
+          "role": "main",
+          "start_s": 149.2373,
+          "end_s": 178.7459
+        },
+        {
+          "name": "[Breakdown]",
+          "role": "breakdown",
+          "start_s": 178.7459,
+          "end_s": 190.5492
+        },
+        {
+          "name": "[Return]",
+          "role": "main",
+          "start_s": 190.5492,
+          "end_s": 220.0574
+        },
+        {
+          "name": "[Outro]",
+          "role": "outro",
+          "start_s": 220.0574,
+          "end_s": 240.0
+        }
+      ],
+      "style": {
+        "music": "bright_piano_minimalism",
+        "music_variant": "d",
+        "pulse": "soft_four",
+        "pad": "warm_additive",
+        "texture": "procedural_air"
+      },
+      "audio": {
+        "path": "piano_g122/piano_g122.wav",
+        "bytes": 69120044,
+        "sha256": "fbc6028fc7b1e13011eead4e431c43a4f37ba31efb5010c035969c1dfa55f074"
+      },
+      "sidecars": {
+        "tempo_map": {
+          "path": "piano_g122/tempo_map.json",
+          "bytes": 379471,
+          "sha256": "eb58445bb9706c0dc827a7604ab71afeabd89f0ed1b55689b44a70b6e11e0c46"
+        },
+        "arc": {
+          "path": "piano_g122/arc.json",
+          "bytes": 2412,
+          "sha256": "af8acfe779dc782aac2f73cf824675010114e0e357831e8d6a5c361ffc3feac5"
+        },
+        "chords": {
+          "path": "piano_g122/chords.json",
+          "bytes": 19385,
+          "sha256": "63657b93fb5c96364023adef7fadb1cb8144a8ddd5a5676c8217a6114b006238"
+        }
+      },
+      "stems": null,
+      "qa": {
+        "tags": {
+          "am_compatible": true,
+          "mb_compatible": true,
+          "bb_compatible": true,
+          "lever_compatible": false
+        },
+        "checks": {
+          "mb_slot": true,
+          "pad_native_mod": true,
+          "grid": true,
+          "true_peak": true,
+          "beat_alignment": false
+        },
+        "provisional": true,
+        "failed": [
+          "beat_alignment"
+        ],
+        "true_peak_dbfs": -1.22,
+        "phase_rms_dbfs": {
+          "entry": -21.88,
+          "ramp": -20.29,
+          "plateau": -17.08,
+          "handoff": -20.23
+        },
+        "native_mod_db_mix": {
+          "12-20": -20.0,
+          "38-42": -26.8
+        },
+        "mb_slot_residual_db_mix": -51.5
+      },
+      "ai_generated": true,
+      "licence": "music + motif: Eleven Music (paid plan; confirm in-app streaming of modified tracks before shipping); everything else procedural, own work",
+      "source": {
+        "params": {
+          "seed": 1,
+          "arc_profile": "wake_to_work_4m",
+          "plateau_bpm": 122,
+          "entry_tempo_ratio": 0.85,
+          "key_root": "G",
+          "mode": "major",
+          "music_source": "elevenlabs",
+          "music_style": "bright_piano_minimalism",
+          "music_variant": "d",
+          "motif": true,
+          "pad_timbre": "warm_additive",
+          "pad_tuning": "just_per_chord",
+          "pulse_style": "soft_four",
+          "texture_source": "procedural_air",
+          "texture_prompt": "soft steady rain on leaves, no thunder, no birds",
+          "length_s": 240
+        },
+        "generator": "resonance_utils 0.3.0 / energizer 0.1.0"
+      }
+    }
+  ]
+}

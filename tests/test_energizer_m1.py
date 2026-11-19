@@ -65,3 +65,31 @@ def test_tempo_map_exact():
     # entry: 50 beats; ramp: mean bpm 109 over 120 s = 218 beats; plateau 90 s at 118 = 177 beats
     assert abs(tm.total_beats - (50 + 218 + 177)) < 1e-6
     assert abs(tm.time_of_beat(50) - 30) < 1e-6 and abs(tm.time_of_beat(268) - 150) < 1e-6
+
+
+def test_deploy_gate_and_manifest(beds, tmp_path):
+    import shutil
+    from resonance_utils.cli import main as ss
+    build = tmp_path / "build" / "energizer"
+    shutil.copytree(beds[0], build / os.path.basename(beds[0]))
+    bid = os.path.basename(beds[0])
+    q = json.load(open(build / bid / "qa_report.json"))
+    passing = q["tags"]["lever_compatible"]
+    out = tmp_path / "deploy"
+    rc = ss(["deploy", "energizer", "--build", str(tmp_path / "build"), "--out", str(out)])
+    assert rc == (0 if passing else 1)
+    assert ss(["deploy", "energizer", "--build", str(tmp_path / "build"), "--out", str(out), "--allow-qa-fail"]) == 0
+    m = json.load(open(out / "energizer" / "manifest.json"))
+    b = m["beds"][0]
+    assert b["bed_id"] == bid and b["stems"] is None
+    assert b["audio"]["path"] == f"{b['id']}/{b['id']}.wav" and os.path.isfile(out / "energizer" / b["audio"]["path"])
+    assert ss(["deploy", "energizer", "--build", str(tmp_path / "build"), "--out", str(tmp_path / "ds"),
+               "--allow-qa-fail", "--stems"]) == 0
+    bs = json.load(open(tmp_path / "ds" / "energizer" / "manifest.json"))["beds"][0]
+    assert set(bs["stems"]) == {"pad", "bass", "pulse", "texture"}
+    assert json.load(open(out / "index.json"))["packs"][0]["type"] == "energizer"
+    # a stem changed after the build is refused
+    with open(build / bid / "stems" / "pad.wav", "ab") as fh:
+        fh.write(b"x")
+    assert ss(["deploy", "energizer", "--build", str(tmp_path / "build"), "--out", str(tmp_path / "d2"),
+               "--allow-qa-fail"]) == 1
