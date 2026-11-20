@@ -131,6 +131,53 @@ Outputs per scenario, in `<out>/inducer/<scenario>/` (default `build/`):
 | `…_bed.wav`, `…_tonelayer.wav` | with `--stems`: the two layers at the same scale as the mix |
 | `report.json` | screening results for every take, and the take order in the loop |
 
+## Inducer with Stable Audio 3, from real recordings (`--engine sa3`)
+
+The ElevenLabs scenes all sounded alike in testing, and the measurement agrees
+(`python -m resonance_utils.core.identity a.wav b.wav ...`): the seven shipped beds fall into two
+noise colours, vehicles and water, with the same texture. The prompts asked for "distant,
+muffled, smooth, continuous" so the takes would pass screening, and that removes what makes a
+scene recognisable.
+
+`--engine sa3` makes each take locally with Stable Audio 3 medium, through the MLX build in a
+stable-audio-3 checkout (`SA3_DIR`, default `~/work/stable-audio-3/optimized/mlx`). It costs
+nothing and takes about 11 s per 60 s take on Apple Silicon. Each take is **audio-to-audio from a
+real recording** of the scene (`--init-noise-level` 0.6), steered by a prompt naming the scene's
+signature sounds (`scenarios.SA3_SCENES`). Only recordings that pass the screens themselves are
+used as references. Takes rotate through them, from a different window per seed, and go through
+the same screen, join, swell and tone stages as before.
+
+```bash
+python scripts/freesound_refs.py                 # CC0 references -> refs/inducer/freesound/ (+ credits.json)
+ss gen inducer all --engine sa3 --takes 12 --tone   # -> build/inducer/<scenario>_sa3/
+ss gen inducer river --engine sa3 --probe 3      # pass rates only
+```
+
+- **Building and deploying:** SA3 builds go to `<scenario>_sa3`, next to the ElevenLabs ones, so
+  `ss deploy inducer` can ship both for A/B testing.
+- **Conditioning:** `--flatten-s` defaults to 3 s for SA3, which flattens only the swell band and
+  leaves the scene's own gusts and washes (0.5 s flattens all motion below about 2 Hz). The
+  1–12 Hz screen still runs on the conditioned bed.
+- **Seams:** SA3 clips fade in and out, so each take is rendered 3 s longer at both ends and
+  trimmed (`--sa3-trim`).
+- **References:** `refs/` holds audio only locally and is git-ignored. Freesound files are CC0
+  128 kbps previews. Pixabay files are fine as references but may not be redistributed on their own.
+- **Licence:** SA3 weights use the Stability AI Community License. Check the current revenue
+  threshold before shipping SA3 output.
+
+What the 2026-11-19 runs showed:
+
+| | Distance to own scene's references (lower = closer) | Margin over nearest other scene |
+|---|---|---|
+| ElevenLabs, shipped | 6.7 | −1.1 |
+| SA3, text only ("smooth" prompts) | 5.3–5.7 | −0.3 to −0.9 |
+| SA3, text only (signature prompts) | 4.8 | +2.1 |
+| **SA3 from real recordings** | **3.1** | **+3.7** |
+
+The screens reject much of what real water sounds like. Of 45 real recordings, about half the
+rain recordings and most streams and surf fail: random 1–12 Hz flicker, patter transients and
+wave swell. That limits which references can be used, and how much water character survives.
+
 ## Deploy to the app
 
 ```bash

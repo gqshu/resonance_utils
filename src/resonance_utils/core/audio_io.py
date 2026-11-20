@@ -120,6 +120,12 @@ def read_wav(path, seed=0):
 def load_any(path, seed=0):
     if path.lower().endswith(".wav"):
         return read_wav(path, seed)
+    if path.lower().endswith((".m4a", ".aac", ".mp4", ".caf")) and not shutil.which("ffmpeg") \
+            and shutil.which("afconvert"):                 # macOS: AAC without ffmpeg
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "x.wav")
+            subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI24", path, out], check=True, capture_output=True)
+            return read_wav(out, seed)
     with open(path, "rb") as fh:
         return decode_audio(fh.read(), "mp3", seed)
 

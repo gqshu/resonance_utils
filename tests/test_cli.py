@@ -55,3 +55,45 @@ def test_energizer_partial_clash():
     assert "40 Hz with the 220" in partial_clash(180, s)          # bass note beating at 40 Hz
     assert "40 Hz with the 260" in partial_clash(300, s)
     assert partial_clash(146.8, s) is None and partial_clash(330, s) is None
+
+
+def test_inducer_sa3_dry_run(tmp_path, capsys):
+    """--engine sa3 defaults to the reference variant and writes to <scenario>_sa3; a dry run
+    never starts the model, so it needs neither the stable-audio-3 checkout nor refs/."""
+    from resonance_utils.inducer.gen import main as ss_gen
+    assert ss_gen(["rain_soft", "--engine", "sa3", "--dry-run", "--takes", "1", "--out", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "./sa3 --dit medium --seconds 66" in out
+    assert os.path.isdir(tmp_path / "inducer" / "rain_soft_sa3" / "raw")
+
+
+def test_identity_separates_spectra():
+    import numpy as np
+    from resonance_utils.core import identity
+    rng = np.random.default_rng(0)
+    white = rng.standard_normal((48000 * 10, 2))
+    dark = np.cumsum(white, 0)
+    dark -= dark.mean(0)
+    a, b = identity.fingerprint(white), identity.fingerprint(dark / np.abs(dark).max())
+    assert identity.distance(a, a)[0] == 0
+    assert identity.distance(a, b)[0] > 10
+
+
+def test_build_split_makes_disjoint_loops(tmp_path):
+    """--split: four 60 s takes -> two 100 s loops, no take shared, every loop screened clean."""
+    import numpy as np
+    from scipy.signal import lfilter
+
+    from resonance_utils.core.audio_io import FS, normalise, write_wav24
+    from resonance_utils.inducer import bed
+    paths = []
+    for i in range(4):
+        w = np.random.default_rng(200 + i).standard_normal((60 * FS, 2))
+        p = str(tmp_path / f"take_{i:02d}.wav")
+        write_wav24(p, normalise(lfilter([1.0], [1.0, -0.98], w, axis=0)))
+        paths.append(p)
+    beds, report = bed.build_split(paths, [110.0], 20.0, 100.0)
+    assert [len(b) for b, _ in beds] == [100 * FS, 100 * FS]
+    used = [t for _, o in beds for t in o]
+    assert len(used) == len(set(used)) == 4
+    assert not report.get("dropped_loops")

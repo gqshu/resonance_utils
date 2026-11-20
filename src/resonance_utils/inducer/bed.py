@@ -50,6 +50,15 @@ THRESH = dict(
     tonal_eq_max_db=6.0,         # max static per-octave correction toward the group's median balance
 )
 XFADE_S = 3.0
+REF_HOP_S = 40.0             # SA3 reference windows start every this many seconds
+REF_TAKES_PER_WINDOW = 2     # most takes (different seeds) drawn from one window of a reference
+# Conditioning divides out each band's level averaged over this window. 0.5 s removes all motion
+# slower than ~2 Hz (gusts, washes, sway): the scenes lose their identity and turn into coloured
+# noise. 3 s removes only the swell band (< ~0.3 Hz) that the swell stage replaces. Set per run
+# (gen --flatten-s); it is part of the screening cache key.
+FLATTEN_S = 0.5
+PRECAP_DB = None   # if set, every take's transients are capped at +this dB (condition()) BEFORE
+                   # screening, so the unchanged screens judge the softened audio that ships
 
 
 # ===========================================================================
@@ -60,10 +69,10 @@ def api_generate(text, duration, influence, model, output_format, api_key, base)
                                key=api_key, base=base)
 
 
-def cached_takes(raw_dir, prompt=None, model=None):
+def cached_takes(raw_dir, prompt=None, model=None, match=None):
     """Takes in raw_dir; with prompt (and model), only those whose sidecar JSON records that
-    exact prompt and model, so editing a prompt or switching models never silently reuses
-    takes made the old way."""
+    exact prompt and model (and every field in match), so editing a prompt or switching models
+    never silently reuses takes made the old way."""
     paths = sorted(glob.glob(os.path.join(raw_dir, "take_*.wav")))
     if prompt is None:
         return paths
@@ -72,7 +81,8 @@ def cached_takes(raw_dir, prompt=None, model=None):
         try:
             with open(p[:-4] + ".json") as fh:
                 meta = json.load(fh)
-                if meta.get("prompt") == prompt and (model is None or meta.get("model") == model):
+                if (meta.get("prompt") == prompt and (model is None or meta.get("model") == model)
+                        and all(meta.get(k) == v for k, v in (match or {}).items())):
                     keep.append(p)
         except (OSError, ValueError):
             pass
@@ -118,6 +128,166 @@ def generate_takes(prompt, raw_dir, n_takes, duration=30.0, influence=0.65,
             json.dump({"prompt": prompt, "influence": infl, "duration": duration,
                        "model": model, "format": fmt}, fh, indent=2)
     return cached_takes(raw_dir, prompt, model)
+
+
+def sa3_generate_takes(spec, raw_dir, n_takes, duration=60.0, dit="medium", steps=8, trim_s=3.0,
+                       dry_run=False):
+    """Stable Audio 3 (local, free): top raw_dir up to n_takes takes of spec = dict(prompt,
+    negative, cfg[, init, init_noise]). Take k uses seed k, so takes are reproducible. Each is
+    rendered trim_s longer at both ends and trimmed: SA3 clips tend to fade in and out.
+
+    With init (a list of reference recordings), each take is audio-to-audio from one of them,
+    starting init_noise of the way from that recording to noise (0.5 keeps it close, 0.7 keeps its
+    timbre and texture but recomposes it). A new take goes to the least-used reference, at its
+    least-used window (windows start every REF_HOP_S). A reference gives at most
+    REF_TAKES_PER_WINDOW takes per window, here and in what is returned: an 81 s recording has one
+    66 s window, and 13 takes from it made a repetitive, unrealistic wind bed (2026-11-19).
+    Returns every matching take."""
+    from ..core import sa3
+    from ..core.audio_io import read_wav
+    prompt, neg, cfg = spec["prompt"], spec.get("negative"), float(spec.get("cfg", 1.0))
+    neg = neg if cfg != 1.0 else None
+    model = sa3.model_tag(dit, steps, cfg)
+    inits = spec.get("init") or []
+    noise = float(spec.get("init_noise", 0.6))
+    match = dict(negative=neg, trim_s=trim_s)
+    if inits:
+        match.update(init_noise=noise)
+
+    n_in = int((duration + 2 * trim_s) * FS)
+    ref_audio, windows = {}, {}
+    for ref in inits:
+        if not os.path.exists(ref):
+            if dry_run:
+                windows[ref] = [0]
+                continue
+            raise SystemExit(f"reference {ref} is missing (refs/ is local only: see scripts/freesound_refs.py)")
+        ref_audio[ref] = load_any(ref)
+        span = max(0, len(ref_audio[ref]) - n_in)
+        windows[ref] = list(range(0, span + 1, int(REF_HOP_S * FS)))
+    cap = {ref: REF_TAKES_PER_WINDOW * len(w) for ref, w in windows.items()}
+
+    def matching():
+        """Cached takes made this way, up to each reference's cap. A reference take counts while its
+        own reference is still listed, so dropping a reference keeps the takes made from the others."""
+        out, used = [], {}
+        for p in cached_takes(raw_dir, prompt, model, match):
+            with open(p[:-4] + ".json") as fh:
+                src = (json.load(fh).get("init_from") or {}).get("file")
+            if not inits:
+                if src is None:
+                    out.append(p)
+            elif src in inits and used.get(src, 0) < cap[src]:
+                used[src] = used.get(src, 0) + 1
+                out.append(p)
+        return out
+
+    def usage(paths):
+        per_ref, per_win = {r: 0 for r in inits}, {}
+        for p in paths:
+            with open(p[:-4] + ".json") as fh:
+                f = json.load(fh).get("init_from") or {}
+            if f.get("file") in per_ref:
+                per_ref[f["file"]] += 1
+                key = (f["file"], int(round(f["offset_s"] * FS)))
+                per_win[key] = per_win.get(key, 0) + 1
+        return per_ref, per_win
+    os.makedirs(raw_dir, exist_ok=True)
+    have = matching()
+    per_ref, per_win = usage(have)
+    if inits:
+        room = sum(cap[r] - per_ref[r] for r in inits)
+        if n_takes - len(have) > room:
+            print(f"  the references hold only {room} more take(s) ({REF_TAKES_PER_WINDOW} per {duration + 2 * trim_s:g} s "
+                  f"window every {REF_HOP_S:g} s): add longer or more references")
+        n_takes = min(n_takes, len(have) + room)
+    missing = max(0, n_takes - len(have))
+    if have:
+        print(f"  {len(have)} cached take(s) in {raw_dir}" + (f", need {missing} more" if missing else ""))
+    if not missing:
+        return have
+    nums = [int(m.group(1)) for p in cached_takes(raw_dir) if (m := re.search(r"take_(\d+)\.wav$", p))]
+    seeds_used = set()
+    for p in have:
+        with open(p[:-4] + ".json") as fh:
+            seeds_used.add(json.load(fh).get("seed"))
+    seeds = [k for k in range(1, 10 * n_takes + 100) if k not in seeds_used][:missing]
+    first = max(nums, default=0) + 1
+    for i, seed in zip(range(first, first + missing), seeds):
+        print(f"  take {i:02d}  sa3 {dit} seed={seed} cfg={cfg:g}")
+        if dry_run:
+            print(f"    ./sa3 --dit {dit} --seconds {duration + 2 * trim_s:g} --seed {seed} --cfg {cfg:g}"
+                  + (" --negative-prompt ..." if neg else "") + f"  {prompt[:60]!r}...")
+            continue
+        p = os.path.join(raw_dir, f"take_{i:02d}.wav")
+        tmp = p[:-4] + ".sa3.wav"
+        init_wav, init_from = None, None
+        if inits:
+            ref = min((r for r in inits if per_ref[r] < cap[r]), key=lambda r: (per_ref[r], inits.index(r)))
+            off = min(windows[ref], key=lambda o: (per_win.get((ref, o), 0), o))
+            per_ref[ref] += 1
+            per_win[(ref, off)] = per_win.get((ref, off), 0) + 1
+            init_wav, init_from = p[:-4] + ".init.wav", dict(file=ref, offset_s=round(off / FS, 2))
+            sa3.write_init(ref_audio[ref][off:off + n_in], init_wav, FS)
+            print(f"    from {os.path.basename(ref)} at {off / FS:.0f} s, noise {noise:g}")
+        sa3.generate(prompt, tmp, duration + 2 * trim_s, seed, dit, steps, cfg, neg,
+                     init_wav=init_wav, init_noise=noise if inits else None)
+        if init_wav:
+            os.remove(init_wav)
+        x = read_wav(tmp)
+        k = int(round(trim_s * FS))
+        write_wav24(p, normalise(x[k:len(x) - k] if k else x))
+        os.remove(tmp)
+        with open(p[:-4] + ".json", "w") as fh:
+            meta = dict(prompt=prompt, negative=neg, cfg=cfg, seed=seed, duration=duration, trim_s=trim_s,
+                        model=model, engine="sa3", dit=dit, steps=steps)
+            if inits:
+                meta.update(init=list(inits), init_noise=noise, init_from=init_from)
+            json.dump(meta, fh, indent=2)
+    return matching()
+
+
+def ref_takes(refs, raw_dir, duration=60.0, dry_run=False):
+    """Takes cut straight from the scene's real recordings, no model: each reference is split into
+    back-to-back duration-long windows (no overlap, so no material repeats in the bed), and the
+    usual screens and bed processing decide which are used. SA3 audio-to-audio recomposed the
+    recordings too much to keep them recognisable, the train most of all (listening, 2026-11-20).
+    A window already cut (same reference and offset) is reused. Returns every take of these refs."""
+    os.makedirs(raw_dir, exist_ok=True)
+    have = {}
+    for p in cached_takes(raw_dir):
+        with open(p[:-4] + ".json") as fh:
+            f = json.load(fh).get("init_from") or {}
+        have[(f.get("file"), f.get("offset_s"))] = p
+    nums = [int(m.group(1)) for p in cached_takes(raw_dir) if (m := re.search(r"take_(\d+)\.wav$", p))]
+    nxt = max(nums, default=0) + 1
+    n = int(round(duration * FS))
+    out, new = [], 0
+    for ref in refs:
+        if not os.path.exists(ref):
+            if dry_run:
+                print(f"  would cut {ref} into {duration:g} s windows")
+                continue
+            raise SystemExit(f"reference {ref} is missing (refs/ is local only: see scripts/freesound_refs.py)")
+        x = load_any(ref)
+        offs = [round(o / FS, 2) for o in range(0, len(x) - n + 1, n)]
+        for off in offs:
+            p = have.get((ref, off))
+            if p is None and not dry_run:
+                p = os.path.join(raw_dir, f"take_{nxt:02d}.wav")
+                nxt += 1
+                new += 1
+                k = int(round(off * FS))
+                write_wav24(p, normalise(x[k:k + n]))
+                with open(p[:-4] + ".json", "w") as fh:
+                    json.dump(dict(prompt=None, model="ref", engine="ref", duration=duration,
+                                   init_from=dict(file=ref, offset_s=off)), fh, indent=2)
+            if p:
+                out.append(p)
+        print(f"  {os.path.basename(ref)[:48]}: {len(offs)} window(s) of {duration:g} s")
+    if new:
+        print(f"  cut {new} new take(s) into {raw_dir}")
+    return out
 
 
 # ===========================================================================
@@ -239,8 +409,8 @@ CONDITION_BANDS_HZ = (150.0, 400.0, 1000.0, 2500.0, 6000.0)   # crossovers -> 6 
 
 
 def _flatten(x):
-    """Divide out the slow (0.5 s RMS) level, keeping the band's average level."""
-    slow = np.sqrt(np.maximum(circ_conv_env(power_frames(x), ENV_RATE // 2), 0)) + 1e-9
+    """Divide out the slow (FLATTEN_S RMS) level, keeping the band's average level."""
+    slow = np.sqrt(np.maximum(circ_conv_env(power_frames(x), int(round(ENV_RATE * FLATTEN_S))), 0)) + 1e-9
     return x * frames_to_samples(np.exp(np.mean(np.log(slow))) / slow, len(x))[:, None]
 
 
@@ -297,6 +467,12 @@ def screen_take(x, do_condition=True):
             r["flags"].append(desc)
         else:
             r["reasons"] = [desc + f" (limit {T['swell_after_max_db']:g})"]
+    if do_condition and not r["reasons"]:
+        # judged as it ships too: conditioning can add transients (river, 2026-11-20)
+        tc = screen(condition(x))["transients_excess_per_min"]
+        r["transients_after_conditioning_per_min"] = round(tc, 1)
+        if tc > T["transient_max_per_min"]:
+            r["reasons"] = [f"transients after conditioning (+{tc:.0f}/min)"]
     r["verdict"] = "reject" if r["reasons"] else "pass"
     return r
 
@@ -347,14 +523,19 @@ def match_tone(clips, balances, max_db):
     return out, applied
 
 
-SCREEN_VERSION = 4   # bump whenever a measurement changes, so cached verdicts get recomputed
+SCREEN_VERSION = 5   # bump whenever a measurement changes, so cached verdicts get recomputed
 
 
 def _screen_key(do_condition):
     import hashlib
     t = {k: v for k, v in THRESH.items()                 # grouping and hum are not screening
          if not k.startswith(("tonal_", "hum_"))}
-    blob = json.dumps(dict(v=SCREEN_VERSION, t=t, d=do_condition, b=CONDITION_BANDS_HZ),
+    d = dict(v=SCREEN_VERSION, t=t, d=do_condition, b=CONDITION_BANDS_HZ)
+    if FLATTEN_S != 0.5:                                  # older keys stay valid
+        d["f"] = FLATTEN_S
+    if PRECAP_DB:
+        d["p"] = PRECAP_DB
+    blob = json.dumps(d,
                       sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:12]
 
@@ -402,16 +583,16 @@ def screen_take_cached(path, x, carriers, do_condition=True):
     return with_hum(base, {f"{c:g}": hums[_hum_key(c)] for c in carriers}), cached
 
 
-def build_bed(paths, carriers, loop_unit_s, loop_seconds=None, seed=1, min_pass=3,
-              do_condition=True):
-    """Screen takes, join the passing ones into a loop whose length is a whole multiple of
-    loop_unit_s (so every swell rate fits a whole number of waves), condition, notch, normalise.
-    Returns (bed or None, report dict)."""
+def screen_and_match(paths, carriers, do_condition=True):
+    """Screen takes, keep the passing ones that match in tone, and EQ them toward each other.
+    Returns (clips, names, report)."""
     xf = int(XFADE_S * FS)
     clips, names, takes = [], [], []
     n_cached = 0
     for i, p in enumerate(paths):
         x = load_any(p, seed=i)
+        if PRECAP_DB:
+            x = condition(x, crest_db=PRECAP_DB)
         r, hit = screen_take_cached(p, x, carriers, do_condition)
         n_cached += hit
         r["file"] = os.path.basename(p)
@@ -446,6 +627,24 @@ def build_bed(paths, carriers, loop_unit_s, loop_seconds=None, seed=1, min_pass=
             report["tone_match_eq_db"] = dict(zip(names, eq))
             print(f"  tone-matched {len(clips)} takes (max correction "
                   f"{max(max(abs(v) for v in g) for g in eq):.1f} dB per octave)")
+    return clips, names, report
+
+
+def _finish(clips, order, n, carriers, do_condition):
+    xf = int(XFADE_S * FS)
+    bed = close_loop(chain(clips, order, xf), n, xf)
+    if do_condition:
+        bed = condition(bed)
+    return normalise(notch(bed, carriers))
+
+
+def build_bed(paths, carriers, loop_unit_s, loop_seconds=None, seed=1, min_pass=3,
+              do_condition=True):
+    """Screen takes, join the passing ones into a loop whose length is a whole multiple of
+    loop_unit_s (so every swell rate fits a whole number of waves), condition, notch, normalise.
+    Returns (bed or None, report dict)."""
+    xf = int(XFADE_S * FS)
+    clips, names, report = screen_and_match(paths, carriers, do_condition)
     if len(clips) < min_pass:
         report["error"] = f"only {len(clips)} takes passed (< {min_pass}); add takes or relax THRESH"
         return None, report
@@ -467,9 +666,73 @@ def build_bed(paths, carriers, loop_unit_s, loop_seconds=None, seed=1, min_pass=
             return None, report
 
     order = [int(k) for k in np.random.default_rng(seed).permutation(len(clips))]
-    bed = close_loop(chain(clips, order, xf), n, xf)
-    if do_condition:
-        bed = condition(bed)
-    bed = normalise(notch(bed, carriers))
+    bed = _finish(clips, order, n, carriers, do_condition)
     report.update(built=True, order=[names[k] for k in order], loop_s=n / FS)
+    bad = finished_problems(bed)
+    if bad:                                              # reported, not fatal: --split drops such loops
+        report["finished_problems"] = bad
+        print(f"  !! the finished loop fails the screens: {'; '.join(bad)}")
     return bed, report
+
+
+def finished_problems(bed, window_s=60.0):
+    """Screen a finished loop (after joining and conditioning) in window_s windows, circularly.
+    The takes are screened raw, and conditioning can still add transients: it gave some river
+    takes that measured 0/min raw +6 to +26/min (2026-11-20). Returns the reasons found."""
+    n = int(window_s * FS)
+    if len(bed) < n:
+        return list(screen(bed)["reasons"])
+    out = []
+    for i in range(0, len(bed), n):
+        w = np.concatenate([bed[i:], bed[:max(0, i + n - len(bed))]])[:n] if i + n > len(bed) else bed[i:i + n]
+        out += [f"{q} at {i / FS:.0f} s" for q in screen(w)["reasons"]]
+    return out
+
+
+def _source(path):
+    """(recording, offset) a take was cut or generated from, for ordering; (path, 0) if unknown."""
+    try:
+        with open(os.path.splitext(path)[0] + ".json") as fh:
+            f = json.load(fh).get("init_from") or {}
+        return f.get("file") or path, float(f.get("offset_s") or 0)
+    except (OSError, ValueError):
+        return path, 0.0
+
+
+def build_split(paths, carriers, loop_unit_s, split_s, do_condition=True):
+    """Several split_s-long loops from one scene's passing takes, each from its own takes (none
+    shared), so a long bed becomes a few short, different loops. Takes are grouped in recording
+    order: the windows of a --engine ref recording are back to back, so a loop's joins fall
+    between neighbouring stretches of one recording where it can. Takes left over that are too
+    short for one more loop are unused.
+    Returns ([(bed, [take names])], report)."""
+    xf = int(XFADE_S * FS)
+    n = int(round(split_s * FS))
+    if n % int(round(loop_unit_s * FS)):
+        raise SystemExit(f"--split must be a multiple of {loop_unit_s:g} s for these rates")
+    clips, names, report = screen_and_match(paths, carriers, do_condition)
+    where = {os.path.basename(p): _source(p) for p in paths}
+    idx = sorted(range(len(clips)), key=lambda k: where.get(names[k], (names[k], 0.0)))
+    groups, cur = [], []
+    for k in idx:
+        cur.append(k)
+        if loopable_samples([clips[j] for j in cur], xf) >= n:
+            groups.append(cur)
+            cur = []
+    beds, dropped = [], {}
+    for g in groups:
+        b, o = _finish(clips, g, n, carriers, do_condition), [names[k] for k in g]
+        bad = finished_problems(b)
+        if bad:
+            dropped[" + ".join(o)] = bad
+            print(f"  DROP   loop from {' + '.join(o)}: {'; '.join(bad)}")
+        else:
+            beds.append((b, o))
+    report.update(built=bool(beds), loop_s=n / FS, variants=[o for _, o in beds],
+                  unused=[names[k] for k in cur])
+    if dropped:
+        report["dropped_loops"] = dropped
+    if not beds:
+        report["error"] = (f"passing takes give {loopable_samples(clips, xf) / FS:.0f} s; "
+                           f"need {split_s:g} s for one loop")
+    return beds, report

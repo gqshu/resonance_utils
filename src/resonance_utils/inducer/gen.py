@@ -45,7 +45,8 @@ from ..core.audio_io import FS, PEAK_CEIL_DBFS, TARGET_RMS_DBFS, rms, write_wav2
 from ..core.audio_io import load_any
 from ..core.layout import type_dir as _type_dir
 from ..core.slots import DEFAULT_CARRIERS_HZ, clean_carriers
-from .scenarios import DEFAULT_PROFILE, SCENARIOS, profile_for, prompt_for, variant_names
+from .scenarios import (DEFAULT_PROFILE, SCENARIOS, profile_for, prompt_for, sa3_precap_db, sa3_spec, sa3_tone_db,
+                        sa3_variant_names, variant_names)
 
 TYPE = "inducer"
 CREDITS_PER_SECOND = 40      # ElevenLabs sound effects with an explicit duration (docs, 2026-11)
@@ -94,20 +95,56 @@ def write_envelope_csv(path, sw):
                      f"{sw['gain_db'][i]:.3f},{sw['pan'][i]:.4f}\n")
 
 
+LOCAL = ("sa3", "ref")    # engines built from the real recordings in scenarios.SA3_SCENES
+
+
+def out_name(name, a):
+    """SA3 builds live next to the ElevenLabs ones, as <scenario>_sa3, so the two can be compared
+    (and deployed side by side)."""
+    return f"{name}_{a.engine}" if a.engine in LOCAL else name
+
+
+def variants_for(name, a):
+    return sa3_variant_names(name) if a.engine in LOCAL else variant_names(name)
+
+
+def describe(name, v, a):
+    if a.engine not in LOCAL:
+        return prompt_for(name, v)
+    sp = sa3_spec(name, v)
+    if a.engine == "ref":
+        return "real recordings: " + ", ".join(os.path.basename(r) for r in sp["init"])
+    return sp["prompt"] + (f"  [cfg {sp['cfg']:g}, negative: {sp['negative']}]" if sp.get("negative") else "")
+
+
+def take_seconds(a):
+    return a.take_seconds or (60.0 if a.engine in LOCAL else 30.0)
+
+
+def make_takes(name, v, raw_dir, n, a):
+    if a.engine == "ref":                            # every window of the references; n is unused
+        return bedmod.ref_takes(sa3_spec(name, v)["init"], raw_dir, duration=take_seconds(a), dry_run=a.dry_run)
+    if a.engine == "sa3":
+        return bedmod.sa3_generate_takes(sa3_spec(name, v), raw_dir, n, duration=take_seconds(a), dit=a.sa3_dit,
+                                         steps=a.sa3_steps, trim_s=a.sa3_trim, dry_run=a.dry_run)
+    return bedmod.generate_takes(prompt_for(name, v), raw_dir, n, duration=take_seconds(a), influence=a.influence,
+                                 model=a.model, output_format=a.output_format, dry_run=a.dry_run)
+
+
 def probe_scenario(name, a, carriers):
     """Generate a.probe takes per prompt variant, screen them, print a pass-rate table.
     Takes stay in the cache, so a probe's passing takes count towards a later build."""
-    raw_dir = os.path.join(a.out, name, "raw")
-    print(f"\n=== probe {name}: {a.probe} take(s) per variant, model {a.model} ===")
+    label = out_name(name, a)
+    raw_dir = os.path.join(a.out, label, "raw")
+    model = {"sa3": f"sa3 {a.sa3_dit}", "ref": "real recordings"}.get(a.engine, a.model)
+    print(f"\n=== probe {label}: {a.probe} take(s) per variant, model {model} ===")
     rows, buy = [], 0
-    for v in variant_names(name):
-        prompt = prompt_for(name, v)
-        have = len(bedmod.cached_takes(raw_dir, prompt, a.model))
-        buy += max(0, a.probe - have)
+    for v in variants_for(name, a):
+        prompt = describe(name, v, a)
+        if a.engine == "elevenlabs":
+            buy += max(0, a.probe - len(bedmod.cached_takes(raw_dir, prompt, a.model)))
         print(f"[{v}] {prompt[:100]}...")
-        paths = bedmod.generate_takes(prompt, raw_dir, a.probe, duration=a.take_seconds,
-                                      influence=a.influence, model=a.model,
-                                      output_format=a.output_format, dry_run=a.dry_run)
+        paths = make_takes(name, v, raw_dir, a.probe, a)
         if a.dry_run:
             continue
         res = []
@@ -122,8 +159,9 @@ def probe_scenario(name, a, carriers):
         rows.append(dict(variant=v, prompt=prompt, takes=res,
                          passed=sum(r["verdict"] == "pass" for r in res)))
     if a.dry_run:
-        print(f"  would buy {buy} take(s) of {a.take_seconds:g} s = about "
-              f"{buy * a.take_seconds * CREDITS_PER_SECOND:,.0f} credits")
+        if a.engine == "elevenlabs":
+            print(f"  would buy {buy} take(s) of {take_seconds(a):g} s = about "
+                  f"{buy * take_seconds(a) * CREDITS_PER_SECOND:,.0f} credits")
         return True
     med = lambda rs, k: float(np.median([r[k] for r in rs])) if rs else float("nan")
     print(f"\n  {'variant':8s} {'pass':>6s}  {'eeg':>6s} {'trans/min':>9s} {'swell':>6s} {'bright':>6s}")
@@ -135,41 +173,19 @@ def probe_scenario(name, a, carriers):
     print(f"  (medians; limits: eeg {bedmod.THRESH['eeg_band_excess_db']}, trans "
           f"{bedmod.THRESH['transient_max_per_min']:g}/min, swell/bright "
           f"{bedmod.THRESH['swell_after_max_db']} after conditioning)")
-    os.makedirs(os.path.join(a.out, name), exist_ok=True)
-    with open(os.path.join(a.out, name, "probe_report.json"), "w") as fh:
-        json.dump(dict(scenario=name, model=a.model, thresholds=bedmod.THRESH, variants=rows),
+    os.makedirs(os.path.join(a.out, label), exist_ok=True)
+    with open(os.path.join(a.out, label, "probe_report.json"), "w") as fh:
+        json.dump(dict(scenario=name, model=model, thresholds=bedmod.THRESH, variants=rows),
                   fh, indent=2, default=str)
     return True
 
 
-def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
-    out_dir = os.path.join(a.out, name)
-    raw_dir = os.path.join(out_dir, "raw")
-    unit = swell.loop_unit_s(a.rates)
-
-    print(f"\n=== {name} ===")
-    print("[1/3] bed")
-    if paths is None:
-        paths = []
-        for prompt in prompts:                         # --takes applies to each variant
-            paths += bedmod.generate_takes(prompt, raw_dir, a.takes, duration=a.take_seconds,
-                                           influence=a.influence, model=a.model,
-                                           output_format=a.output_format, dry_run=a.dry_run)
-        if a.dry_run:
-            return True
-    os.makedirs(out_dir, exist_ok=True)
-    bed, report = bedmod.build_bed(paths, carriers, unit, a.loop_seconds, a.seed, a.min_pass,
-                                   do_condition=not a.no_condition)
-    report.update(name=name, prompts=list(prompts), model=a.model, profile=profile, carriers=carriers, rates=a.rates,
-                  thresholds=bedmod.THRESH)
-    if bed is None:
-        print(f"  {report['error']}")
-        with open(os.path.join(out_dir, "report.json"), "w") as fh:
-            json.dump(report, fh, indent=2, default=str)
-        return False
+def write_bed_outputs(name, bed, order, report, a, carriers, profile, tone_db, out_dir):
+    """Write one bed's flat loop and its swell (+ tone) renders. Returns the output file names."""
     n = len(bed)
     write_wav24(os.path.join(out_dir, f"{name}_flat.wav"), bed)
-    print(f"  bed: {n / FS:g} s loop from {len(report['order'])} takes -> {name}_flat.wav")
+    print(f"  bed: {n / FS:g} s loop from {len(order)} takes -> {name}_flat.wav")
+    outputs = []
 
     stems = None
     if a.tone:
@@ -181,14 +197,13 @@ def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
               (f"; dropped {[d['f'] for d in tinfo['dropped']]}" if tinfo["dropped"] else ""))
 
     print(f"[2/3] swells at {', '.join(f'{r:g}' for r in a.rates)} Hz")
-    outputs = []
     for r in a.rates:
         y, sw = swell.apply_swell(bed, r, profile, a.period_jitter, a.depth_jitter, a.seed)
         tag = f"{name}_{rate_tag(r)}" + ("_tone" if stems else "")
         t = None
         if stems:
             t = tone.mix_tone(stems[0], stems[1], sw["env"], sw["params"]["depth_db"] * a.tone_swell)
-            t *= rms(y) * 10 ** (a.tone_db / 20) / (rms(t) + 1e-12)
+            t *= rms(y) * 10 ** (tone_db / 20) / (rms(t) + 1e-12)
             mix = y + t
         else:
             mix = y
@@ -202,7 +217,7 @@ def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
         q = qa(mix)
         meta = dict(scenario=name, file=tag + ".wav", loop_s=n / FS, fs=FS, bits=24, carriers_hz=carriers,
                     swell=sw["params"], profile=profile,
-                    tone=(dict(level_db_vs_bed=a.tone_db, swell_db=round(sw["params"]["depth_db"] * a.tone_swell, 2),
+                    tone=(dict(level_db_vs_bed=tone_db, swell_db=round(sw["params"]["depth_db"] * a.tone_swell, 2),
                                **report["tone"]) if stems else None),
                     qa=q)
         with open(os.path.join(out_dir, tag + ".json"), "w") as fh:
@@ -212,6 +227,51 @@ def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None):
         print(f"  {tag}.wav  {sw['params']['waves']} waves, depth {sw['params']['depth_db']:g} dB, "
               f"eeg excess {q['eeg_band_excess_db']:+.2f} dB, seam {q['loop_seam_jump']:.4f}{flag}")
 
+    return outputs
+
+
+def run_scenario(name, a, carriers, prompts=(), profile=None, paths=None, variants=None, tone_db=None):
+    """variants: (scenario, [variant, ...]) to generate takes from; prompts is what the report
+    records. Without variants, paths are the takes (--from-dir)."""
+    tone_db = a.tone_db if tone_db is None else tone_db
+    out_dir = os.path.join(a.out, name)
+    raw_dir = os.path.join(out_dir, "raw")
+    unit = swell.loop_unit_s(a.rates)
+
+    print(f"\n=== {name} ===")
+    print("[1/3] bed")
+    if paths is None:
+        paths = []
+        scen, vs = variants
+        for v in vs:                                   # --takes applies to each variant
+            paths += make_takes(scen, v, raw_dir, a.takes, a)
+        if a.dry_run:
+            return True
+    os.makedirs(out_dir, exist_ok=True)
+    if a.split:
+        beds, report = bedmod.build_split(paths, carriers, unit, a.split, do_condition=not a.no_condition)
+        beds = [(f"{name}_v{k + 1}", b, o) for k, (b, o) in enumerate(beds)]
+    else:
+        bed, report = bedmod.build_bed(paths, carriers, unit, a.loop_seconds, a.seed, a.min_pass,
+                                       do_condition=not a.no_condition)
+        beds = [(name, bed, report.get("order"))] if bed is not None else []
+    report.update(name=name, prompts=list(prompts),
+                  model={"sa3": f"sa3 {a.sa3_dit}", "ref": "real recordings"}.get(a.engine, a.model), profile=profile, carriers=carriers, rates=a.rates,
+                  thresholds=bedmod.THRESH)
+    if a.engine == "sa3":
+        report.update(engine="sa3", sa3=dict(dit=a.sa3_dit, steps=a.sa3_steps, trim_s=a.sa3_trim))
+    if a.engine in LOCAL and bedmod.PRECAP_DB:
+        report["precap_db"] = bedmod.PRECAP_DB
+    if a.engine == "ref":
+        report["engine"] = "ref"
+    if not beds:
+        print(f"  {report['error']}")
+        with open(os.path.join(out_dir, "report.json"), "w") as fh:
+            json.dump(report, fh, indent=2, default=str)
+        return False
+    outputs = []
+    for loop_name, bed, order in beds:
+        outputs += write_bed_outputs(loop_name, bed, order, report, a, carriers, profile, tone_db, out_dir)
     report["outputs"] = outputs
     with open(os.path.join(out_dir, "report.json"), "w") as fh:
         json.dump(report, fh, indent=2, default=str)
@@ -229,7 +289,11 @@ def add_args(ap):
     ap.add_argument("--out", default="build", help="build root; output goes to <out>/inducer/<scenario>/")
     g = ap.add_argument_group("bed (ElevenLabs)")
     g.add_argument("--takes", type=int, default=8, help="takes per scenario (cached takes count)")
-    g.add_argument("--take-seconds", type=float, default=30.0)
+    g.add_argument("--engine", choices=("elevenlabs", "sa3", "ref"), default="elevenlabs",
+                   help="where takes come from: the ElevenLabs API, Stable Audio 3 run locally from the "
+                        "scene's real recordings (SA3_DIR), or those recordings themselves, cut into "
+                        "windows (builds go to <scenario>_sa3 / <scenario>_ref)")
+    g.add_argument("--take-seconds", type=float, default=None, help="default 30 (ElevenLabs), 60 (sa3)")
     g.add_argument("--influence", type=float, default=0.65)
     g.add_argument("--model", default="eleven_text_to_sound_v3",
                    help="eleven_text_to_sound_v3 (newest) or _v2 (deprecated, removed 2027-03-01)")
@@ -237,13 +301,24 @@ def add_args(ap):
     g.add_argument("--min-pass", type=int, default=3, help="minimum passing takes to build a bed")
     g.add_argument("--loop-seconds", type=float, default=None,
                    help="loop length (default: longest whole multiple of the wave unit)")
+    g.add_argument("--split", type=float, metavar="SECONDS", default=None,
+                   help="build several loops this long from one scene, each from its own takes "
+                        "(<scenario>_v1, _v2, ...) instead of one long loop; e.g. 100")
     g.add_argument("--no-condition", action="store_true")
+    g.add_argument("--flatten-s", type=float, default=None,
+                   help="conditioning level window (s): 0.5 flattens all motion below ~2 Hz, 3 only the "
+                        "swell band, keeping the scene's own gusts and washes. Default 0.5 (ElevenLabs), 3 (sa3)")
     g.add_argument("--dry-run", action="store_true", help="show the API calls, spend nothing")
-    g.add_argument("--variant", default="a",
+    g.add_argument("--variant", default=None,
                    help="prompt variant(s) to build from, e.g. 'c' or 'a,b,c' (see --list); "
                         "--takes applies to each")
     g.add_argument("--probe", type=int, metavar="N",
                    help="make N takes per prompt variant, report pass rates, build nothing")
+    g = ap.add_argument_group("bed (Stable Audio 3, --engine sa3)")
+    g.add_argument("--sa3-dit", choices=("medium", "sm-sfx", "sm-music"), default="medium")
+    g.add_argument("--sa3-steps", type=int, default=8)
+    g.add_argument("--sa3-trim", type=float, default=3.0,
+                   help="seconds rendered extra and cut at each end of a take (SA3 clips fade in/out)")
     g = ap.add_argument_group("swell")
     g.add_argument("--rates", type=float, nargs="+", default=[0.1, 0.2, 0.25])
     g.add_argument("--period-jitter", type=float, default=0.03, help="wave period drift (fraction)")
@@ -261,19 +336,24 @@ def add_args(ap):
     ap.add_argument("--seed", type=int, default=1)
 
 
-def list_scenarios():
+def list_scenarios(engine="elevenlabs"):
+    class A:
+        pass
+    a = A()
+    a.engine = engine
     for k in SCENARIOS:
-        for v in variant_names(k):
-            print(f"{k if v == 'a' else '':15s} [{v}] {prompt_for(k, v)[:95]}...")
+        for i, v in enumerate(variants_for(k, a)):
+            print(f"{k if i == 0 else '':15s} [{v}] {describe(k, v, a)[:95]}...")
 
 
 def run(a, ap):
     """Run a parsed `gen` command. a.out is the build root; this type writes to <out>/inducer/."""
     a.out = type_dir(a.out)
     if a.list:
-        list_scenarios()
+        list_scenarios(a.engine)
         return 0
     carriers = clean_carriers(a.carrier)
+    bedmod.FLATTEN_S = a.flatten_s or (3.0 if a.engine in LOCAL else 0.5)
     ok = True
     if a.from_dir:
         paths = sorted(os.path.join(a.from_dir, p) for p in os.listdir(a.from_dir)
@@ -294,11 +374,14 @@ def run(a, ap):
             if a.probe:
                 ok &= probe_scenario(s, a, carriers)
                 continue
-            vs = [v.strip() for v in a.variant.split(",") if v.strip()]
-            bad = [v for v in vs if v not in variant_names(s)]
+            vs = [v.strip() for v in (a.variant or ("r" if a.engine in LOCAL else "a")).split(",") if v.strip()]
+            bad = [v for v in vs if v not in variants_for(s, a)]
             if bad:
-                ap.error(f"{s} has no variant(s) {bad}; it has {variant_names(s)}")
-            ok &= run_scenario(s, a, carriers, prompts=[prompt_for(s, v) for v in vs], profile=profile_for(s))
+                ap.error(f"{s} has no variant(s) {bad}; it has {variants_for(s, a)}")
+            bedmod.PRECAP_DB = sa3_precap_db(s) if a.engine in LOCAL else None
+            ok &= run_scenario(out_name(s, a), a, carriers, prompts=[describe(s, v, a) for v in vs],
+                               profile=profile_for(s), variants=(s, vs),
+                               tone_db=sa3_tone_db(s, a.tone_db) if a.engine in LOCAL else None)
     return 0 if ok else 2
 
 

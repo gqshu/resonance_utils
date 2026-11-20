@@ -28,3 +28,8 @@ bed_out/
 
 # ElevenLabs request cache and usage log
 cache/
+
+# reference recordings: analysis only, never committed or shipped (credits.json is kept)
+refs/**/*.mp3
+refs/**/*.m4a
+refs/**/*.wav
